@@ -1,0 +1,50 @@
+services:
+  database:
+    container_name: realtime-trading-db
+    image: postgres:17.5-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - realtime_db_volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    stop_grace_period: 1m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    container_name: realtime-trading-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - SERVER_HOST=${SERVER_HOST}
+      - SERVER_PORT=${SERVER_PORT}
+      - SERVER_DEBUG=${SERVER_DEBUG}
+      - SERVER_RELOAD=${SERVER_RELOAD}
+      - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "${SERVER_PORT}:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./backend:/backend
+    env_file:
+      - .env
+
+volumes:
+  realtime_db_volume:
