@@ -9,6 +9,7 @@ class UserSignupRequestSchema(BaseModel):
     email: EmailStr
     password: str
     name: str
+    user_type: UserTypeEnum = UserTypeEnum.trader 
 
 class UserSignupResponseSchema(BaseModel):
     user_id: uuid.UUID

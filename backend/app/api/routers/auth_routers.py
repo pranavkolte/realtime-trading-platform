@@ -27,7 +27,10 @@ async def signup_user(
     db_session: Session = Depends(get_db_session)
 ) -> JSONResponse:
     try:
-        user: UserSignupResponseSchema = await AuthService.signup(db_session=db_session, signup_data=signup_data)
+        user: UserSignupResponseSchema = await AuthService.signup(
+            db_session=db_session,
+            signup_request_data=signup_data
+        )
         return JSONResponse(
             content={
                 "message": "User created successfully",
@@ -90,4 +93,3 @@ async def login_user(
             },
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-    

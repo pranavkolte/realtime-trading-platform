@@ -4,8 +4,8 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy import (
     Column,
     String,
+    Enum,
 )
-from sqlalchemy import Enum
 
 from app.database import Base
 from app.database.enums.user_enums import UserTypeEnum

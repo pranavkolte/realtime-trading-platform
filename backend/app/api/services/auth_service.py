@@ -27,7 +27,8 @@ class AuthService:
             user = UserModel(
                 email=signup_request_data.email,
                 password=hashed_password,
-                name=signup_request_data.name
+                name=signup_request_data.name,
+                user_type=signup_request_data.user_type
             )
             db_session.add(user)
             db_session.commit()
