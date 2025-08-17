@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.routers.auth_routers import router as auth_router
 from app.api.routers.order_routers import router as order_router
 from app.api.routers.ws_router import router as ws_router
@@ -7,6 +8,13 @@ app = FastAPI(
     title="Realtime Trading Platform",
     description="A high-performance trading platform with real-time order matching",
     version="1.0.0"
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.get("/")
