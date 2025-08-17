@@ -31,6 +31,7 @@ interface WebSocketContextType {
   orderBooks: Record<string, BookUpdateData>;
   connect: () => void;
   disconnect: () => void;
+  setInitialOrderBook: (orderBookData: any) => void; // Add this
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -52,33 +53,51 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderBooks, setOrderBooks] = useState<Record<string, BookUpdateData>>({});
+  const [hasInitialData, setHasInitialData] = useState(false); // Add this flag
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef(0);
-  const shouldConnectRef = useRef(false); // Control whether to maintain connection
+  const shouldConnectRef = useRef(false);
 
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
-      console.log('[WebSocket] Raw message received:', event.data);
-      const message: WebSocketMessage = JSON.parse(event.data);
-      console.log('[WebSocket] Parsed message:', message);
+      const msg = JSON.parse(event.data);
 
-      if (message.event === 'book_update' && message.data) {
-        console.log('[WebSocket] Processing book_update for symbol:', message.data.symbol);
+      // Only process order book updates if we have initial data
+      if (msg.type === 'order_book_update' && msg.data && hasInitialData) {
+        const { bids, asks, last_trade_price } = msg.data;
+
         setOrderBooks(prev => ({
           ...prev,
-          [message.data!.symbol]: message.data! // <-- non-null assertion
+          DEFAULT: {
+            symbol: 'DEFAULT',
+            latest_price: last_trade_price,
+            order_book: { bids, asks }
+          }
         }));
-      } else if (message.event === 'connected') {
-        console.log('[WebSocket] ✅ Connection confirmed by server:', message.message);
+        return;
+      }
+
+      if (msg.event === 'book_update' && msg.data && hasInitialData) {
+        if (msg.data.symbol) {
+          setOrderBooks(prev => ({
+            ...prev,
+            [msg.data.symbol]: msg.data
+          }));
+        }
+        return;
+      }
+
+      if (msg.event === 'connected') {
+        console.log('[WS] ✅ Connected:', msg.message);
       } else {
-        console.log('[WebSocket] ℹ️ Unhandled event type:', message.event);
+        console.log('[WS] ℹ️ Unhandled:', msg);
       }
     } catch (err) {
-      console.error('[WebSocket] Failed to parse message:', err);
-      setError('Failed to parse message from server');
+      console.error('[WS] Parse error:', err);
+      setError('Bad message from server');
     }
-  }, []);
+  }, [hasInitialData]);
 
   const handleOpen = useCallback(() => {
     console.log('[WebSocket] ✅ Successfully Connected!');
@@ -154,6 +173,24 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     }
   }, [token, connectWebSocket]);
 
+  // Add method to set initial order book data
+  const setInitialOrderBook = useCallback((orderBookData: any) => {
+    if (orderBookData) {
+      setOrderBooks({
+        DEFAULT: {
+          symbol: 'DEFAULT',
+          latest_price: orderBookData.last_trade_price || 100,
+          order_book: {
+            bids: orderBookData.bids || [],
+            asks: orderBookData.asks || []
+          }
+        }
+      });
+      setHasInitialData(true);
+    }
+  }, []);
+
+  // Reset flags on disconnect
   const disconnect = useCallback(() => {
     console.log('[WebSocket] 🔌 disconnect() called');
     shouldConnectRef.current = false;
@@ -170,6 +207,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     
     setIsConnected(false);
     setOrderBooks({});
+    setHasInitialData(false); // Reset the flag
     reconnectAttempts.current = 0;
   }, []);
 
@@ -200,7 +238,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     error,
     orderBooks,
     connect,
-    disconnect
+    disconnect,
+    setInitialOrderBook // Add this to the context
   };
 
   return (

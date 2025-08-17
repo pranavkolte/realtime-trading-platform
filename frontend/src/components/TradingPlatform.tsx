@@ -7,7 +7,7 @@ const API_BASE = import.meta.env.VITE_API_BASE;
 
 export default function TradingPlatform() {
   const { token, email, logout } = useAuth();
-  const { connect, disconnect, isConnected, error: wsError, orderBooks } = useWebSocket();
+  const { connect, disconnect, isConnected, error: wsError, orderBooks, setInitialOrderBook } = useWebSocket();
   const [stocks, setStocks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [orderBook, setOrderBook] = useState<any>(null);
@@ -58,15 +58,14 @@ export default function TradingPlatform() {
         );
         setTradeHistory([]);
         setStocks([]);
-        setLoading(false); // <-- ADD THIS LINE
+        setLoading(false);
       })
       .catch((error) => {
-        // Optionally handle error
-        setLoading(false); // <-- ADD THIS LINE (in case of error)
+        setLoading(false);
       })
       .finally(() => setOrdersLoading(false));
 
-    // Fetch order book
+    // Fetch order book and set it as initial data
     fetch(`${API_BASE}/orders/book`, {
       headers: { 'accept': 'application/json' },
     })
@@ -74,12 +73,14 @@ export default function TradingPlatform() {
         if (res.ok) {
           const ob = await res.json();
           setOrderBook(ob);
+          // Set this as initial data for WebSocket context
+          setInitialOrderBook(ob);
         } else {
           setOrderBook(null);
         }
       })
       .catch((error) => {
-        // Optionally handle error
+        // Handle error
       })
       .finally(() => setOrderBookLoading(false));
   };
@@ -181,25 +182,7 @@ export default function TradingPlatform() {
     }
   }, [token, isConnected, connect]);
 
-  // Update order books when WebSocket data arrives
-  useEffect(() => {
-    if (Object.keys(orderBooks).length > 0) {
-      console.log('[TradingPlatform] Updating stocks with WebSocket data');
-      setStocks(prevStocks => 
-        prevStocks.map(stock => {
-          const bookUpdate = orderBooks[stock.symbol];
-          if (bookUpdate) {
-            return {
-              ...stock,
-              latest_price: bookUpdate.latest_price,
-              order_book: bookUpdate.order_book
-            };
-          }
-          return stock;
-        })
-      );
-    }
-  }, [orderBooks]);
+  const liveBook = orderBooks.DEFAULT?.order_book;
 
   return (
     <div className="dark-theme">
@@ -251,59 +234,59 @@ export default function TradingPlatform() {
                 {/* Buy */}
                 <div className="orderbook-side">
                   <h4>🟢 Buy</h4>
-                  {orderBookLoading ? (
-                    <div className="loading">Loading...</div>
-                  ) : orderBook?.bids?.length ? (
+                  {orderBookLoading && !liveBook ? (
+                    <div className="loading">Loading…</div>
+                  ) : liveBook ? (
                     <table className="order-table">
                       <thead>
                         <tr>
                           <th>Price</th>
-                          <th>Quantity</th>
+                          <th>Qty</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {orderBook.bids
+                        {liveBook.bids
                           .sort((a: any, b: any) => b.price - a.price)
                           .slice(0, 10)
-                          .map((bid: any, idx: number) => (
-                            <tr key={idx}>
-                              <td>${bid.price}</td>
-                              <td>{bid.total_qty ?? bid.quantity}</td>
+                          .map((b: any) => (
+                            <tr key={`b-${b.price}`}>
+                              <td>${b.price.toFixed(2)}</td>
+                              <td>{b.total_qty}</td>
                             </tr>
                           ))}
                       </tbody>
                     </table>
                   ) : (
-                    <div className="empty-msg">No bids available</div>
+                    <div className="empty-msg">Waiting for data…</div>
                   )}
                 </div>
                 {/* Sell */}
                 <div className="orderbook-side">
                   <h4>🔴 Sell</h4>
-                  {orderBookLoading ? (
-                    <div className="loading">Loading...</div>
-                  ) : orderBook?.asks?.length ? (
+                  {orderBookLoading && !liveBook ? (
+                    <div className="loading">Loading…</div>
+                  ) : liveBook ? (
                     <table className="order-table">
                       <thead>
                         <tr>
                           <th>Price</th>
-                          <th>Quantity</th>
+                          <th>Qty</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {orderBook.asks
+                        {liveBook.asks
                           .sort((a: any, b: any) => a.price - b.price)
                           .slice(0, 10)
-                          .map((ask: any, idx: number) => (
-                            <tr key={idx}>
-                              <td>${ask.price}</td>
-                              <td>{ask.total_qty ?? ask.quantity}</td>
+                          .map((a: any) => (
+                            <tr key={`a-${a.price}`}>
+                              <td>${a.price.toFixed(2)}</td>
+                              <td>{a.total_qty}</td>
                             </tr>
                           ))}
                       </tbody>
                     </table>
                   ) : (
-                    <div className="empty-msg">No asks available</div>
+                    <div className="empty-msg">Waiting for data…</div>
                   )}
                 </div>
               </div>
