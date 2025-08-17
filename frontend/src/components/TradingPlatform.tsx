@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useWebSocket } from '../context/WebSocketContext';
 import { useAuth } from '../context/AuthContext';
 import './TradingPlatform.css';
+import { PriceChartChartJS } from './PriceChart';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -23,6 +24,7 @@ export default function TradingPlatform() {
   // Add local loading states for orders and order book
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orderBookLoading, setOrderBookLoading] = useState(false);
+  const [priceHistory, setPriceHistory] = useState<number[]>([]);
 
   useEffect(() => {
     // Initial load
@@ -184,6 +186,18 @@ export default function TradingPlatform() {
 
   const liveBook = orderBooks.DEFAULT?.order_book;
 
+  useEffect(() => {
+    if (liveBook?.last_trade_price) {
+      setPriceHistory(prev => [...prev.slice(-49), liveBook.last_trade_price]);
+    }
+  }, [liveBook?.last_trade_price]);
+
+  useEffect(() => {
+    if (orderBook?.last_trade_price) {
+      setPriceHistory(Array(10).fill(orderBook.last_trade_price));
+    }
+  }, [orderBook?.last_trade_price]);
+
   return (
     <div className="dark-theme">
       <div className="trading-root">
@@ -205,24 +219,23 @@ export default function TradingPlatform() {
         <div className="loading">Loading...</div>
       ) : (
         <>
-          {/* Market Overview - full width */}
+          {/* Market Data */}
           <section className="card market-card market-fullwidth">
-            <h3>Market Overview</h3>
-            {stocks.length === 0 ? (
-              <p className="empty-msg">No stock data available</p>
-            ) : (
-              <div className="market-grid">
-                {stocks.map((stock) => (
-                  <div key={stock.symbol} className="market-stock">
-                    <h4>{stock.symbol}</h4>
-                    <div>Price: ${stock.price.toFixed(2)}</div>
-                    <div>Change: {stock.changePercent}%</div>
-                    <button className="buy-btn" onClick={() => handleOrder(stock.symbol, 'buy', 1)}>Buy</button>
-                    <button className="sell-btn" onClick={() => handleOrder(stock.symbol, 'sell', 1)}>Sell</button>
-                  </div>
-                ))}
+            <h3>Live Market Data</h3>
+            <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+              {/* Price Chart */}
+              <div style={{ flex: 1 }}>
+                <h4>Price Chart</h4>
+                <PriceChartChartJS 
+                  data={priceHistory} 
+                  currentPrice={liveBook?.last_trade_price || orderBook?.last_trade_price}
+                />
+                <div style={{ marginTop: '8px', fontSize: '14px', color: '#6b7280' }}>
+                  Last Trade: ${liveBook?.last_trade_price || orderBook?.last_trade_price || 'N/A'}
+                </div>
               </div>
-            )}
+
+            </div>
           </section>
 
           {/* Two columns: Order Book (left), My Orders (right) */}

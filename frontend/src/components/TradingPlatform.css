@@ -557,3 +557,16 @@
   display: block;
   margin-top: 2px;
 }
+.price-chart-container {
+  margin: 16px 0;
+}
+
+.price-chart-container canvas {
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.dark-theme .price-chart-container canvas {
+  background: var(--bg-card);
+  border-color: var(--border) !important;
+}

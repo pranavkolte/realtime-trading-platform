@@ -9,6 +9,7 @@ interface OrderBookEntry {
 interface OrderBook {
   bids: OrderBookEntry[];
   asks: OrderBookEntry[];
+  last_trade_price: number;
 }
 
 interface BookUpdateData {
@@ -72,7 +73,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
           DEFAULT: {
             symbol: 'DEFAULT',
             latest_price: last_trade_price,
-            order_book: { bids, asks }
+            order_book: { bids, asks, last_trade_price }
           }
         }));
         return;
@@ -182,7 +183,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
           latest_price: orderBookData.last_trade_price || 100,
           order_book: {
             bids: orderBookData.bids || [],
-            asks: orderBookData.asks || []
+            asks: orderBookData.asks || [],
+            last_trade_price: orderBookData.last_trade_price
           }
         }
       });
