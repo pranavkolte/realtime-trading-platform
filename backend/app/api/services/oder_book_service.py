@@ -88,7 +88,13 @@ class OrderBookService:
             if db_order:
                 db_order.remaining = remaining
                 db_order.status = status
-        
+                # Set active to False when order is filled, keep True for partially filled
+                if status == OrderStatus.FILLED:
+                    db_order.active = False
+                elif status == OrderStatus.PARTIALLY_FILLED:
+                    db_order.active = True  # Keep active for partially filled orders
+                # OPEN orders remain active = True by default
+
         # Commit all changes
         self.db.commit()
         

@@ -155,16 +155,20 @@ class OrderMatchingEngine:
         buy_order.remaining -= trade_quantity
         sell_order.remaining -= trade_quantity
         
-        # Update order status
+        # Update order status and active flag
         if buy_order.remaining == 0:
             buy_order.status = OrderStatus.FILLED
+            buy_order.active = False  # Set active to False when filled
         elif buy_order.remaining < buy_order.quantity:
             buy_order.status = OrderStatus.PARTIALLY_FILLED
+            buy_order.active = True   # Keep active for partially filled orders
     
         if sell_order.remaining == 0:
             sell_order.status = OrderStatus.FILLED
+            sell_order.active = False  # Set active to False when filled
         elif sell_order.remaining < sell_order.quantity:
             sell_order.status = OrderStatus.PARTIALLY_FILLED
+            sell_order.active = True   # Keep active for partially filled orders
     
         # Update last trade price in the engine
         self._last_trade_price = trade_price
@@ -258,16 +262,16 @@ class OrderMatchingEngine:
 
     def get_order_book_snapshot(self) -> Dict:
         """Get current order book snapshot"""
-        # Aggregate buy orders by price
+        # Aggregate buy orders by price - only include active orders with remaining quantity
         buy_levels = defaultdict(float)
         for _, _, order in self._buy_orders:
-            if order.active and order.remaining > 0:
+            if order.active and order.remaining > 0 and order.status in [OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED]:
                 buy_levels[order.price] += order.remaining
         
-        # Aggregate sell orders by price
+        # Aggregate sell orders by price - only include active orders with remaining quantity
         sell_levels = defaultdict(float)
         for _, _, order in self._sell_orders:
-            if order.active and order.remaining > 0:
+            if order.active and order.remaining > 0 and order.status in [OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED]:
                 sell_levels[order.price] += order.remaining
         
         # Sort and format
@@ -285,7 +289,7 @@ class OrderMatchingEngine:
         """Get the best bid price"""
         while self._buy_orders:
             _, _, order = self._buy_orders[0]
-            if order.active and order.remaining > 0:
+            if order.active and order.remaining > 0 and order.status in [OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED]:
                 return order.price
             heapq.heappop(self._buy_orders)
         return None
@@ -294,7 +298,7 @@ class OrderMatchingEngine:
         """Get the best ask price"""
         while self._sell_orders:
             _, _, order = self._sell_orders[0]
-            if order.active and order.remaining > 0:
+            if order.active and order.remaining > 0 and order.status in [OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED]:
                 return order.price
             heapq.heappop(self._sell_orders)
         return None

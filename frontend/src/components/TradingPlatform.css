@@ -1,0 +1,527 @@
+.trading-root {
+  background: #f3f4f6;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+.trading-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+.user-info {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.logout-btn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.logout-btn:hover {
+  background: #dc2626;
+}
+.trading-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+.card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  padding: 20px 18px 18px 18px;
+  margin-bottom: 12px;
+}
+.portfolio-card, .market-card {
+  min-width: 240px;
+}
+.market-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.market-stock {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 6px;
+}
+.buy-btn {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  margin-right: 6px;
+  cursor: pointer;
+}
+.buy-btn:hover {
+  background: #15803d;
+}
+.sell-btn {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.sell-btn:hover {
+  background: #b91c1c;
+}
+.orderbook-orders-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.orderbook-card, .orders-card {
+  min-width: 320px;
+}
+.orderbook-flex {
+  display: flex;
+  gap: 18px;
+}
+.orderbook-side {
+  flex: 1;
+}
+.order-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+}
+.order-table th, .order-table td {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  text-align: center;
+  vertical-align: middle;
+}
+.order-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+.order-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 8px 0;
+  font-size: 15px;
+}
+.order-side.buy { color: #16a34a; font-weight: 600; }
+.order-side.sell { color: #dc2626; font-weight: 600; }
+.cancel-btn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 6px 18px;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: background 0.2s;
+}
+.cancel-btn:hover {
+  background: #b91c1c;
+  color: #fff;
+}
+.cancel-btn:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  border: none;
+}
+.order-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tab-btn {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 4px 4px 0 0;
+  padding: 6px 18px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #374151;
+}
+.tab-btn.active, .tab-btn:hover {
+  background: #2563eb;
+  color: #fff;
+}
+.empty-msg {
+  color: #9ca3af;
+  font-style: italic;
+  margin-top: 8px;
+}
+.loading {
+  font-size: 20px;
+  color: #2563eb;
+  text-align: center;
+  margin-top: 60px;
+}
+.market-fullwidth {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.main-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 0;
+}
+.orders-table-scroll {
+  max-height: 320px;
+  min-height: 80px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: inherit;
+  scrollbar-gutter: stable;
+}
+.dark-theme .orders-table-scroll {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+/* Dark theme variables */
+.dark-theme {
+  --bg-main: #181a20;
+  --bg-card: #23272f;
+  --bg-header: #23272f;
+  --border: #2c2f36;
+  --text-main: #e5e7eb;
+  --text-muted: #9ca3af;
+  --accent: #2563eb;
+  --buy: #16a34a;
+  --sell: #dc2626;
+  --btn-bg: #ef4444;
+  --btn-bg-hover: #b91c1c;
+  --tab-bg: #23272f;
+  --tab-bg-active: #2563eb;
+}
+
+/* Apply dark theme colors */
+.dark-theme .trading-root {
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+.dark-theme .trading-header {
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border);
+}
+.dark-theme .card {
+  background: var(--bg-card);
+  color: var(--text-main);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.24);
+}
+.dark-theme .order-table {
+  background: var(--bg-card);
+}
+.dark-theme .order-table th, 
+.dark-theme .order-table td {
+  border: 1px solid var(--border) !important;
+  color: var(--text-main) !important;
+  background: transparent !important;
+}
+.dark-theme .order-table th {
+  background: #23272f !important;
+}
+.dark-theme .order-table tbody tr {
+  background: var(--bg-card) !important;
+}
+.dark-theme .order-table tbody tr:hover {
+  background: #2a2d35 !important;
+}
+.dark-theme .order-side.buy { color: var(--buy); }
+.dark-theme .order-side.sell { color: var(--sell); }
+.dark-theme .cancel-btn {
+  background: var(--btn-bg);
+  color: #fff;
+}
+.dark-theme .cancel-btn:hover {
+  background: var(--btn-bg-hover);
+}
+.dark-theme .cancel-btn:disabled {
+  background: #3a3d43;
+  color: var(--text-muted);
+}
+.dark-theme .logout-btn {
+  background: var(--btn-bg);
+  color: #fff;
+}
+.dark-theme .logout-btn:hover {
+  background: var(--btn-bg-hover);
+}
+.dark-theme .tab-btn {
+  background: var(--tab-bg);
+  color: var(--text-muted);
+}
+.dark-theme .tab-btn.active, 
+.dark-theme .tab-btn:hover {
+  background: var(--tab-bg-active);
+  color: #fff;
+}
+.dark-theme .empty-msg {
+  color: var(--text-muted);
+}
+.dark-theme .market-stock {
+  background: #23272f;
+  border: 1px solid var(--border);
+}
+.dark-theme .orderbook-card, 
+.dark-theme .orders-card {
+  background: var(--bg-card);
+}
+.dark-theme h1, 
+.dark-theme h2, 
+.dark-theme h3, 
+.dark-theme h4, 
+.dark-theme h5, 
+.dark-theme h6 {
+  color: var(--text-main) !important;
+}
+.dark-theme span, 
+.dark-theme div, 
+.dark-theme p {
+  color: inherit;
+}
+.dark-theme input, 
+.dark-theme select, 
+.dark-theme textarea {
+  background: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border) !important;
+}
+.dark-theme .buy-btn {
+  background: var(--buy) !important;
+  color: #fff !important;
+}
+.dark-theme .sell-btn {
+  background: var(--sell) !important;
+  color: #fff !important;
+}
+.dark-theme * {
+  border-color: var(--border);
+}
+.dark-theme .market-stock h4 {
+  color: var(--text-main) !important;
+}
+.dark-theme .orderbook-side h4 {
+  color: var(--text-main) !important;
+}
+.dark-theme .trading-root * {
+  background-color: inherit;
+}
+.dark-theme .card * {
+  background-color: transparent;
+}
+.app-wrapper {
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.dark-theme.app-wrapper {
+  background-color: var(--bg-main);
+}
+
+.dark-theme .cancel-btn,
+.dark-theme .logout-btn {
+  background: #ef4444 !important; /* bright red */
+  color: #fff !important;
+}
+
+.dark-theme .cancel-btn:hover,
+.dark-theme .logout-btn:hover {
+  background: #b91c1c !important; /* dark red */
+  color: #fff !important;
+}
+.status-badge {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #6b7280; /* default gray */
+  text-transform: capitalize;
+  letter-spacing: 0.5px;
+}
+
+.status-filled {
+  background: #16a34a; /* green */
+}
+
+.status-open {
+  background: #2563eb; /* blue */
+}
+
+.status-partially_filled {
+  background: #6b7280; /* gray */
+}
+
+/* Place Order Section */
+.place-order-section {
+  margin-top: 24px;
+  width: 100%;
+}
+
+.place-order-card {
+  margin-bottom: 0;
+}
+
+.place-order-form {
+  margin-top: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 2fr;
+  gap: 20px;
+  align-items: end;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.form-group input,
+.form-group select {
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 16px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  height: 48px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.order-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.order-btn {
+  flex: 1;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  height: 48px;
+  transition: all 0.2s;
+}
+
+.buy-order-btn {
+  background: var(--buy);
+  color: #fff;
+}
+
+.buy-order-btn:hover {
+  background: #15803d;
+  transform: translateY(-1px);
+}
+
+.sell-order-btn {
+  background: var(--sell);
+  color: #fff;
+}
+
+.sell-order-btn:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.control-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.control-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.control-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Dark theme for place order section */
+.dark-theme .form-group input,
+.dark-theme .form-group select {
+  background: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.dark-theme .form-group label {
+  color: var(--text-main) !important;
+}
+
+.dark-theme .control-btn {
+  background: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.dark-theme .control-btn:hover {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .order-buttons {
+    flex-direction: column;
+  }
+  
+  .control-buttons {
+    flex-direction: column;
+  }
+}
