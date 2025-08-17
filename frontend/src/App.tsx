@@ -1,27 +1,31 @@
 import React from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { WebSocketProvider } from './context/WebSocketContext';
 import AuthPage from './components/AuthPage';
 import TradingPlatform from './components/TradingPlatform';
+import { useAuth } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import './index.css';
 
-function AppRoutes() {
+const AppContent: React.FC = () => {
   const { token } = useAuth();
-  
-  console.log('AppRoutes - token:', token);
-  
-  return (
-    <div className="dark-theme app-wrapper">
-      {token ? <TradingPlatform /> : <AuthPage />}
-    </div>
-  );
-}
+  const isAuthenticated = !!token; // Use token presence as authentication
 
-export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      {isAuthenticated ? <TradingPlatform /> : <AuthPage />}
     </ErrorBoundary>
   );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <WebSocketProvider>
+        <AppContent />
+      </WebSocketProvider>
+    </AuthProvider>
+  );
 }
+
+export default App;
