@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "Starting the application..."
+echo "Running Alembic migrations..."
+alembic upgrade head
+echo "Migrations completed."
+
+echo "Starting the server..."
 
 # If SERVER_RELOAD is set, you can let docker-compose command handle --reload.
 if [ "$SERVER_RELOAD" = "True" ] || [ "$SERVER_RELOAD" = "true" ]; then

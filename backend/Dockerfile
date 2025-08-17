@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy and install dependencies
 COPY pyproject.toml .
 RUN pip install --no-cache-dir uv
-RUN uv pip install --system --no-cache -r pyproject.toml
+RUN uv pip install --system .
 
 # Copy application code
 COPY . .
