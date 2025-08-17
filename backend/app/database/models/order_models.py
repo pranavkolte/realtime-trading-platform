@@ -5,7 +5,6 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy import (
     Column,
-    String,
     ForeignKey,
     Enum,
     Float,
@@ -24,7 +23,7 @@ class Order(Base):
         default=uuid.uuid4,
         nullable=False,
     )
-    user_id = Column(String, ForeignKey("users.user_id"), index=True, nullable=False)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
 
     side = Column(Enum(Side), nullable=False)
     order_type = Column(Enum(OrderType), nullable=False)
@@ -37,4 +36,4 @@ class Order(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    user = relationship("User", back_populates="orders")
+    user = relationship("UserModel", back_populates="orders")

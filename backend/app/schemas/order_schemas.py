@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +12,7 @@ class PlaceOrderRequest(BaseModel):
     price: float = Field(gt=0)
 
 class OrderResponse(BaseModel):
-    id: int
+    id: UUID
     side: Side
     order_type: OrderType
     price: float

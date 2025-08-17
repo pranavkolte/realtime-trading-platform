@@ -13,6 +13,10 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 
 from app.database.models import Base, UserModel  # noqa: E402, F401
+from app.database.models.order_models import Order  # noqa: E402
+from app.database.models.trade_models import Trade  # noqa: E402
+
+__all__ = ["Base", "UserModel", "Order", "Trade"]
 
 config = context.config
 
