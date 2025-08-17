@@ -47,6 +47,13 @@ class OrderBookService:
         # Process through matching engine
         trade_results = matching_engine.add_order(order)
         
+        # Handle WebSocket notifications for trades
+        if trade_results:
+            await matching_engine.notify_trades_and_book_update(trade_results)
+        else:
+            # Just send order book update if no trades
+            await matching_engine._notify_book_update()
+        
         # Save trades to database and update affected orders
         trades = []
         updated_orders = {}  # order_id -> (remaining, status)
@@ -197,7 +204,7 @@ class OrderBookService:
         return BookSnapshotResponse(
             bids=bids,
             asks=asks,
-            last_trade_price=matching_engine.get_last_trade_price()  # Get from matching engine
+            last_trade_price=matching_engine.get_last_trade_price()
         )
 
     def get_recent_trades(self, limit: int = 50) -> List[TradeResponse]:
@@ -230,5 +237,5 @@ class OrderBookService:
             "best_bid": best_bid,
             "best_ask": best_ask,
             "spread": spread,
-            "last_trade_price": matching_engine.get_last_trade_price()  # Get from matching engine
+            "last_trade_price": matching_engine.get_last_trade_price()
         }

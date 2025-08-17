@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.api.routers.auth_routers import router as auth_router
 from app.api.routers.order_routers import router as order_router
+from app.api.routers.ws_router import router as ws_router
 
 app = FastAPI(
     title="Realtime Trading Platform",
@@ -23,4 +24,10 @@ app.include_router(
     order_router,
     prefix="/api/v1/orders",
     tags=["Orders & Trading"]
+)
+
+app.include_router(
+    ws_router,
+    prefix="/api/v1/ws",
+    tags=["websocket"]
 )

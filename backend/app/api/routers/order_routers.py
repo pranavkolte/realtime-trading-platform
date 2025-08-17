@@ -4,14 +4,14 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db_session
 from app.api.services.oder_book_service import OrderBookService
-from app.api.services.ws_service import WsService
+from app.api.services.ws_service import ws_manager
 from app.database.models.user_models import UserModel
 from app.schemas.order_schemas import PlaceOrderRequest, OrderResponse, BookSnapshotResponse
 from app.schemas.trade_scehmas import TradeResponse
 from app.core.auth_dependencies import get_current_user
 
 router = APIRouter()
-ws_service = WsService()
+ws_service = ws_manager
 
 # Create a response model for place order
 class PlaceOrderResponseModel:
@@ -43,20 +43,20 @@ async def place_order(
         
         # Broadcast order book updates via WebSocket
         order_book = order_service.get_order_book_snapshot()
-        await ws_service.broadcast({
+        await ws_service.broadcast_message({
             "type": "order_book_update",
             "data": order_book.dict()
         })
         
         # Broadcast new trades if any
         if result["trades"]:
-            await ws_service.broadcast({
+            await ws_service.broadcast_message({
                 "type": "new_trades",
                 "data": [trade.dict() for trade in result["trades"]]
             })
         
         # Always broadcast the order update
-        await ws_service.broadcast({
+        await ws_service.broadcast_message({
             "type": "order_update",
             "data": {
                 "user_id": str(current_user.user_id),
@@ -98,7 +98,7 @@ async def cancel_order(
         
         # Broadcast order book updates
         order_book = order_service.get_order_book_snapshot()
-        await ws_service.broadcast({
+        await ws_service.broadcast_message({
             "type": "order_book_update",
             "data": order_book.dict()
         })
@@ -150,7 +150,7 @@ async def get_my_trades(
     - **limit**: Maximum number of trades to return (default: 50)
     """
     try:
-        order_service = OrderBookService(get_db_session)
+        order_service = OrderBookService(db_session)  # Use the injected session
         trades = order_service.get_user_trades(
             user_id=current_user.user_id,
             limit=limit
@@ -192,7 +192,7 @@ async def get_recent_trades(
     - **limit**: Maximum number of trades to return (default: 50)
     """
     try:
-        order_service = OrderBookService(get_db_session)
+        order_service = OrderBookService(db_session)  # Use the injected session
         trades = order_service.get_recent_trades(limit=limit)
         return trades
         

@@ -7,6 +7,7 @@ from collections import defaultdict
 
 from app.database.enums.oder_enums import Side, OrderType, OrderStatus
 from app.database.models.order_models import Order
+from app.api.services.ws_service import ws_manager
 
 @dataclass
 class TradeResult:
@@ -47,8 +48,30 @@ class OrderMatchingEngine:
         # Add remaining quantity to order book if not fully filled
         if order.remaining > 0 and order.status == OrderStatus.OPEN:
             self._add_to_book(order)
-        
+           
         return trades
+
+    async def notify_trades_and_book_update(self, trades: List[TradeResult]):
+        """Notify about executed trades and updated order book"""
+        try:
+            for trade in trades:
+                await self.notify_trade_executed(trade)
+            
+            # After all trades, send updated order book
+            await self._notify_book_update()
+        except Exception:
+            pass
+
+    async def _notify_book_update(self):
+        """Send order book update notification"""
+        try:
+            order_book_data = self.get_order_book_snapshot()
+            await ws_manager.send_order_book_update("BTC-USD", {
+                "latest_price": self._last_trade_price,
+                "order_book": order_book_data
+            })
+        except Exception:
+            pass
 
     def _process_buy_order(self, buy_order: Order) -> List[TradeResult]:
         """Process a buy order against sell orders"""
@@ -148,7 +171,7 @@ class OrderMatchingEngine:
     
         # Create trade result
         self._trade_counter += 1
-        return TradeResult(
+        trade_result = TradeResult(
             buy_order_id=buy_order.order_id,
             sell_order_id=sell_order.order_id,
             buy_user_id=buy_order.user_id,
@@ -161,6 +184,58 @@ class OrderMatchingEngine:
             buy_order_status=buy_order.status,
             sell_order_status=sell_order.status
         )
+        
+        return trade_result
+
+    async def notify_trade_executed(self, trade_result: TradeResult):
+        """Notify clients about the executed trade via WebSocket"""
+        try:
+            trade_data = {
+                "id": str(trade_result.buy_order_id),
+                "symbol": "BTC-USD",
+                "price": trade_result.price,
+                "quantity": trade_result.quantity,
+                "buyer_id": str(trade_result.buy_user_id),
+                "seller_id": str(trade_result.sell_user_id),
+                "latest_price": trade_result.price
+            }
+            
+            # Send trade execution notification
+            await ws_manager.send_trade_execution(trade_data)
+            
+            # Send order status updates to individual users
+            await ws_manager.send_order_status_update(
+                str(trade_result.buy_user_id),
+                {
+                    "order_id": str(trade_result.buy_order_id),
+                    "status": "partially_filled" if trade_result.buy_order_remaining > 0 else "filled",
+                    "filled_quantity": trade_result.quantity,
+                    "remaining_quantity": trade_result.buy_order_remaining
+                }
+            )
+            
+            await ws_manager.send_order_status_update(
+                str(trade_result.sell_user_id),
+                {
+                    "order_id": str(trade_result.sell_order_id),
+                    "status": "partially_filled" if trade_result.sell_order_remaining > 0 else "filled",
+                    "filled_quantity": trade_result.quantity,
+                    "remaining_quantity": trade_result.sell_order_remaining
+                }
+            )
+        except Exception:
+            pass
+
+    def cancel_order(self, order_id: str) -> bool:
+        """Cancel an order by ID"""
+        if order_id in self._orders:
+            order = self._orders[order_id]
+            order.active = False
+            order.status = OrderStatus.CANCELED
+            del self._orders[order_id]
+            
+            return True
+        return False
 
     def get_last_trade_price(self) -> float:
         """Get the last trade price"""
@@ -180,16 +255,6 @@ class OrderMatchingEngine:
         else:
             heapq.heappush(self._sell_orders, 
                          (order.price, order.created_at, order))
-
-    def cancel_order(self, order_id: str) -> bool:
-        """Cancel an order by ID"""
-        if order_id in self._orders:
-            order = self._orders[order_id]
-            order.active = False
-            order.status = OrderStatus.CANCELED
-            del self._orders[order_id]
-            return True
-        return False
 
     def get_order_book_snapshot(self) -> Dict:
         """Get current order book snapshot"""

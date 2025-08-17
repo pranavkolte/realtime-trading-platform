@@ -16,6 +16,16 @@ async def hash_password(password: str) -> str:
 async def verify_password(plain_password: str, hashed_password: str) -> bool:
     return password_context.verify(secret=plain_password, hash=hashed_password)
 
+def decode_access_token(token: str) -> dict:
+    """Decode and validate access token"""
+    try:
+        payload = jwt.decode(token, config.JWT_SECRET_KEY, algorithms=[config.ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Token has expired")
+    except jwt.JWTError:
+        raise ValueError("Invalid token")
+
 async def create_auth_token(user: UserModel) -> dict[str, str]:
 
     access_expire_time = datetime.now(tz=timezone.utc) + timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
