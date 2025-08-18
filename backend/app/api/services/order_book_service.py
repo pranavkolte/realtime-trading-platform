@@ -5,7 +5,7 @@ from sqlalchemy import and_, desc
 
 from app.database.models.order_models import Order
 from app.database.models.trade_models import Trade
-from app.database.enums.oder_enums import OrderStatus, Side
+from app.database.enums.oder_enums import OrderStatus, Side, OrderType
 from app.schemas.order_schemas import PlaceOrderRequest, OrderResponse, BookSnapshotResponse, BookLevel
 from app.schemas.trade_scehmas import TradeResponse
 from app.api.services.order_matching_service import matching_engine
@@ -41,12 +41,88 @@ class OrderBookService:
 
     async def place_order(self, user_id: str, order_request: PlaceOrderRequest) -> dict:
         """Place a new order and return any resulting trades plus the order details"""
+        
+        # For market orders, check if there are any matching orders available
+        if order_request.order_type == OrderType.MARKET:
+            if order_request.side == Side.BUY:
+                # Buy market order: check if there are any sell orders
+                best_ask = matching_engine.get_best_ask()
+                if best_ask is None:
+                    # No sellers available, cancel the market order
+                    order = Order(
+                        user_id=user_id,
+                        side=order_request.side,
+                        order_type=order_request.order_type,
+                        price=None,  # No price for cancelled market order
+                        quantity=order_request.quantity,
+                        remaining=0,  # No remaining since it's cancelled
+                        status=OrderStatus.CANCELED,
+                        active=False
+                    )
+                    self.db.add(order)
+                    self.db.commit()
+                    self.db.refresh(order)
+                    
+                    order_response = OrderResponse(
+                        id=order.order_id,
+                        side=order.side,
+                        order_type=order.order_type,
+                        price=None,
+                        quantity=order.quantity,
+                        remaining=order.remaining,
+                        status=order.status,
+                        active=order.active,
+                        created_at=order.created_at
+                    )
+                    
+                    return {
+                        "trades": [],
+                        "order": order_response,
+                        "order_executed": False
+                    }
+            else:
+                # Sell market order: check if there are any buy orders
+                best_bid = matching_engine.get_best_bid()
+                if best_bid is None:
+                    # No buyers available, cancel the market order
+                    order = Order(
+                        user_id=user_id,
+                        side=order_request.side,
+                        order_type=order_request.order_type,
+                        price=None,  # No price for cancelled market order
+                        quantity=order_request.quantity,
+                        remaining=0,  # No remaining since it's cancelled
+                        status=OrderStatus.CANCELED,
+                        active=False
+                    )
+                    self.db.add(order)
+                    self.db.commit()
+                    self.db.refresh(order)
+                    
+                    order_response = OrderResponse(
+                        id=order.order_id,
+                        side=order.side,
+                        order_type=order.order_type,
+                        price=None,
+                        quantity=order.quantity,
+                        remaining=order.remaining,
+                        status=order.status,
+                        active=order.active,
+                        created_at=order.created_at
+                    )
+                    
+                    return {
+                        "trades": [],
+                        "order": order_response,
+                        "order_executed": False
+                    }
+    
         # Create order object
         order = Order(
             user_id=user_id,
             side=order_request.side,
             order_type=order_request.order_type,
-            price=order_request.price,
+            price=order_request.price,  # Will be None for market orders
             quantity=order_request.quantity,
             remaining=order_request.quantity,
             status=OrderStatus.OPEN,
@@ -132,7 +208,7 @@ class OrderBookService:
             id=order.order_id,
             side=order.side,
             order_type=order.order_type,
-            price=order.price,
+            price=order.price if order.order_type == OrderType.LIMIT else None,  # Don't return price for market orders
             quantity=order.quantity,
             remaining=order.remaining,
             status=order.status,

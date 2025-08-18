@@ -48,22 +48,6 @@ async def place_order(
             "data": order_book.dict()
         })
         
-        # Broadcast new trades if any
-        if result["trades"]:
-            await ws_service.broadcast_message({
-                "type": "new_trades",
-                "data": [trade.dict() for trade in result["trades"]]
-            })
-        
-        # Always broadcast the order update
-        await ws_service.broadcast_message({
-            "type": "order_update",
-            "data": {
-                "user_id": str(current_user.user_id),
-                "order": result["order"].dict()
-            }
-        })
-        
         return result
         
     except Exception as e:

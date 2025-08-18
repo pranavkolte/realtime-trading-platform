@@ -40,8 +40,8 @@ class OrderMatchingEngine:
         else:
             trades = self._process_sell_order(order)
         
-        # Add remaining quantity to order book if not fully filled
-        if order.remaining > 0 and order.status == OrderStatus.OPEN:
+        # Add remaining quantity to order book if not fully filled and is a limit order
+        if order.remaining > 0 and order.status == OrderStatus.OPEN and order.order_type == OrderType.LIMIT:
             self._add_to_book(order)
            
         return trades
@@ -76,7 +76,7 @@ class OrderMatchingEngine:
                self._sell_orders and 
                self._can_match(buy_order, self._sell_orders[0][2])):
             
-            # Get best sell order
+            # Get best sell order (cheapest)
             _, _, sell_order = heapq.heappop(self._sell_orders)
             
             # Skip if order is no longer active
@@ -102,7 +102,7 @@ class OrderMatchingEngine:
                self._buy_orders and 
                self._can_match(self._buy_orders[0][2], sell_order)):
             
-            # Get best buy order (note: prices are negative in heap)
+            # Get best buy order (highest price)
             _, _, buy_order = heapq.heappop(self._buy_orders)
             
             # Skip if order is no longer active
@@ -122,8 +122,10 @@ class OrderMatchingEngine:
 
     def _can_match(self, buy_order: Order, sell_order: Order) -> bool:
         """Check if buy and sell orders can be matched"""
+        # Market orders can always match with any limit order
         if buy_order.order_type == OrderType.MARKET or sell_order.order_type == OrderType.MARKET:
             return True
+        # Limit orders match if buy price >= sell price
         return buy_order.price >= sell_order.price
 
     def _execute_trade(self, buy_order: Order, sell_order: Order) -> Optional[TradeResult]:
@@ -134,18 +136,21 @@ class OrderMatchingEngine:
         # Determine trade quantity
         trade_quantity = min(buy_order.remaining, sell_order.remaining)
         
-        # Determine trade price (price discovery)
+        # Simple price discovery for market orders:
+        # Market order takes the price of the limit order in the book
         if buy_order.order_type == OrderType.MARKET:
+            # Buy market order takes the sell limit order's price (cheapest available)
             trade_price = sell_order.price
         elif sell_order.order_type == OrderType.MARKET:
+            # Sell market order takes the buy limit order's price (highest available)
             trade_price = buy_order.price
         else:
-            # For limit orders, use the price of the order that was in the book first
+            # Both limit orders - use the price of the order that was in the book first
             if buy_order.created_at < sell_order.created_at:
                 trade_price = buy_order.price
             else:
                 trade_price = sell_order.price
-        
+    
         # Update order quantities
         buy_order.remaining -= trade_quantity
         sell_order.remaining -= trade_quantity
@@ -157,17 +162,17 @@ class OrderMatchingEngine:
         elif buy_order.remaining < buy_order.quantity:
             buy_order.status = OrderStatus.PARTIALLY_FILLED
             buy_order.active = True   # Keep active for partially filled orders
-    
+
         if sell_order.remaining == 0:
             sell_order.status = OrderStatus.FILLED
             sell_order.active = False  # Set active to False when filled
         elif sell_order.remaining < sell_order.quantity:
             sell_order.status = OrderStatus.PARTIALLY_FILLED
             sell_order.active = True   # Keep active for partially filled orders
-    
+
         # Update last trade price in the engine
         self._last_trade_price = trade_price
-    
+
         # Create trade result
         self._trade_counter += 1
         trade_result = TradeResult(
@@ -189,19 +194,6 @@ class OrderMatchingEngine:
     async def notify_trade_executed(self, trade_result: TradeResult):
         """Notify clients about the executed trade via WebSocket"""
         try:
-            trade_data = {
-                "id": str(trade_result.buy_order_id),
-                "symbol": "BTC-USD",
-                "price": trade_result.price,
-                "quantity": trade_result.quantity,
-                "buyer_id": str(trade_result.buy_user_id),
-                "seller_id": str(trade_result.sell_user_id),
-                "latest_price": trade_result.price
-            }
-            
-            # Send trade execution notification
-            await ws_manager.send_trade_execution(trade_data)
-            
             # Send order status updates to individual users
             await ws_manager.send_order_status_update(
                 str(trade_result.buy_user_id),

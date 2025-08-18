@@ -77,36 +77,6 @@ class WebSocketManager:
             if user_to_disconnect:
                 self.disconnect(conn, user_to_disconnect)
     
-    async def send_trade_execution(self, trade_data: dict):
-        """Send trade execution update to all clients"""
-        message = {
-            "event": "trade_executed",
-            "timestamp": datetime.utcnow().isoformat(),
-            "data": {
-                "trade_id": trade_data.get("id"),
-                "symbol": trade_data.get("symbol"),
-                "price": trade_data.get("price"),
-                "quantity": trade_data.get("quantity"),
-                "buyer_id": trade_data.get("buyer_id"),
-                "seller_id": trade_data.get("seller_id"),
-                "latest_price": trade_data.get("latest_price")
-            }
-        }
-        await self.broadcast_message(message)
-    
-    async def send_order_book_update(self, symbol: str, order_book_data: dict):
-        """Send order book update to all clients"""
-        message = {
-            "event": "book_update",
-            "timestamp": datetime.utcnow().isoformat(),
-            "data": {
-                "symbol": symbol,
-                "latest_price": order_book_data.get("latest_price"),
-                "order_book": order_book_data.get("order_book")
-            }
-        }
-        await self.broadcast_message(message)
-    
     async def send_order_status_update(self, user_id: str, order_data: dict):
         """Send order status update to specific user"""
         message = {
