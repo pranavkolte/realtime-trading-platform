@@ -64,8 +64,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     try {
       const msg = JSON.parse(event.data);
 
-      // Only process order book updates if we have initial data
-      if (msg.type === 'order_book_update' && msg.data && hasInitialData) {
+      // Handle wrapped order book updates (your backend format)
+      if (msg.type === 'order_book_update' && msg.data) {
+        console.log('[WS] ✅ Processing wrapped order book update');
         const { bids, asks, last_trade_price } = msg.data;
 
         setOrderBooks(prev => ({
@@ -76,19 +77,35 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
             order_book: { bids, asks, last_trade_price }
           }
         }));
-        return;
-      }
-
-      if (msg.event === 'book_update' && msg.data && hasInitialData) {
-        if (msg.data.symbol) {
-          setOrderBooks(prev => ({
-            ...prev,
-            [msg.data.symbol]: msg.data
-          }));
+        
+        // Set initial data flag if not already set
+        if (!hasInitialData) {
+          setHasInitialData(true);
         }
         return;
       }
 
+      // Handle direct order book data (alternative format)
+      if (msg.bids && msg.asks) {
+        console.log('[WS] ✅ Processing direct order book update');
+        const { bids, asks, last_trade_price } = msg;
+
+        setOrderBooks(prev => ({
+          ...prev,
+          DEFAULT: {
+            symbol: 'DEFAULT',
+            latest_price: last_trade_price,
+            order_book: { bids, asks, last_trade_price }
+          }
+        }));
+        
+        // Set initial data flag if not already set
+        if (!hasInitialData) {
+          setHasInitialData(true);
+        }
+        return;
+      }
+      
       if (msg.event === 'connected') {
         console.log('[WS] ✅ Connected:', msg.message);
       } else {

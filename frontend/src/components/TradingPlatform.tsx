@@ -54,9 +54,18 @@ export default function TradingPlatform() {
   };
 
   useEffect(() => {
-    // Only fetch price history on first mount (reload)
-    fetchPriceHistory();
-    loadOrdersAndBook();
+    // First fetch price history and order book, THEN connect WebSocket
+    const initializeData = async () => {
+      await fetchPriceHistory();
+      await loadOrdersAndBook();
+      // Only connect WebSocket after initial data is loaded
+      if (token && !isConnected) {
+        console.log('[TradingPlatform] Initial data loaded, connecting WebSocket');
+        connect();
+      }
+    };
+    
+    initializeData();
   }, []);
 
   // Fetch orders and order book in parallel, update only relevant UI parts
@@ -64,14 +73,15 @@ export default function TradingPlatform() {
     setOrdersLoading(true);
     setOrderBookLoading(true);
 
-    // Fetch orders
-    fetch(`${API_BASE}/orders/my-orders`, {
-      headers: {
-        'accept': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-    })
-      .then(async (res) => {
+    // Use Promise.all to wait for both requests
+    const [ordersResult, orderBookResult] = await Promise.allSettled([
+      // Fetch orders
+      fetch(`${API_BASE}/orders/my-orders`, {
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      }).then(async (res) => {
         if (!res.ok) throw new Error('Failed to fetch orders');
         const orders = await res.json();
         setActiveOrders(
@@ -89,30 +99,28 @@ export default function TradingPlatform() {
         setTradeHistory([]);
         setStocks([]);
         setLoading(false);
-      })
-      .catch((error) => {
+      }).catch((error) => {
         setLoading(false);
-      })
-      .finally(() => setOrdersLoading(false));
+      }),
 
-    // Fetch order book and set it as initial data
-    fetch(`${API_BASE}/orders/book`, {
-      headers: { 'accept': 'application/json' },
-    })
-      .then(async (res) => {
+      // Fetch initial order book data
+      fetch(`${API_BASE}/orders/book`, {
+        headers: { 'accept': 'application/json' },
+      }).then(async (res) => {
         if (res.ok) {
           const ob = await res.json();
           setOrderBook(ob);
-          // Set this as initial data for WebSocket context
           setInitialOrderBook(ob);
         } else {
           setOrderBook(null);
         }
+      }).catch((error) => {
+        console.error('Failed to fetch order book:', error);
       })
-      .catch((error) => {
-        // Handle error
-      })
-      .finally(() => setOrderBookLoading(false));
+    ]);
+
+    setOrdersLoading(false);
+    setOrderBookLoading(false);
   };
 
   // Place order API
@@ -203,14 +211,6 @@ export default function TradingPlatform() {
       // No alert
     }
   };
-
-  // Simple WebSocket connection - connect once when token is available
-  useEffect(() => {
-    if (token && !isConnected) {
-      console.log('[TradingPlatform] Attempting to connect WebSocket');
-      connect();
-    }
-  }, [token, isConnected, connect]);
 
   const liveBook = orderBooks.DEFAULT?.order_book;
 

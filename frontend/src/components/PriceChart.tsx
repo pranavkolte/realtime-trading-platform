@@ -8,6 +8,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler, // Add this import
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -18,7 +19,8 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler // Add this registration
 );
 
 interface PriceChartProps {
