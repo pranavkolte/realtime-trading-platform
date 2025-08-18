@@ -136,6 +136,35 @@ export default function TradingPlatform() {
     setOrderBookLoading(false);
   };
 
+  // Fetch only orders (not order book)
+  const refreshMyOrders = async () => {
+    setOrdersLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/orders/my-orders`, {
+        headers: {
+          'accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      const orders = await res.json();
+
+      // Set initial orders in WebSocket context
+      const activeOrdersList = orders.filter(
+        (o: any) =>
+          (o.status === 'OPEN' || o.status === 'PARTIALLY_FILLED') && o.active
+      );
+      const orderHistoryList = orders.filter(
+        (o: any) =>
+          (o.status !== 'OPEN' && o.status !== 'PARTIALLY_FILLED') || !o.active
+      );
+      setInitialOrders(activeOrdersList, orderHistoryList);
+    } catch (error) {
+      // Optionally handle error
+    }
+    setOrdersLoading(false);
+  };
+
   // Place order API
   const placeOrder = async (
     token: string,
@@ -178,7 +207,6 @@ export default function TradingPlatform() {
     const price = parseFloat(orderForm.price);
     const quantity = parseInt(orderForm.quantity);
 
-    // For MARKET orders, price is not required
     if (orderForm.orderType === 'LIMIT' && (!price || price <= 0)) {
       return;
     }
@@ -193,15 +221,14 @@ export default function TradingPlatform() {
         quantity: quantity,
       };
 
-      // Only include price for LIMIT orders
       if (orderForm.orderType === 'LIMIT') {
         orderData.price = price;
       }
 
       await placeOrder(token!, orderData);
       setOrderForm({ price: '', quantity: '', orderType: 'LIMIT' });
-      // Only reload orders and order book, not the whole page
-      loadOrdersAndBook();
+      // Only refresh "My Orders"
+      refreshMyOrders();
     } catch (error: any) {
       // No alert
     }
@@ -225,12 +252,12 @@ export default function TradingPlatform() {
         const err = await res.json();
         throw new Error(err.message || 'Failed to cancel order');
       }
-      // The WebSocket will handle the order status update automatically
-      // No need to call loadOrdersAndBook() here
+      // Refresh only "My Orders" after cancel
+      refreshMyOrders();
     } catch (err: any) {
       // If WebSocket update fails, fallback to manual refresh
       console.error('Cancel order error:', err);
-      loadOrdersAndBook();
+      refreshMyOrders();
     }
   };
 
@@ -551,7 +578,7 @@ export default function TradingPlatform() {
               
               {/* Control buttons */}
               <div className="control-buttons">
-                <button className="control-btn" onClick={loadOrdersAndBook}>
+                <button className="control-btn" onClick={refreshMyOrders}>
                   🔄 Refresh Orders
                 </button>
                 <button className="control-btn" onClick={loadOrdersAndBook}>
