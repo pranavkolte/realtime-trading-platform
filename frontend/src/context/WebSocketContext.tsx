@@ -26,13 +26,20 @@ interface WebSocketMessage {
   [key: string]: any;
 }
 
+interface PriceData {
+  price: number;
+  timestamp: string;
+}
+
 interface WebSocketContextType {
   isConnected: boolean;
   error: string | null;
   orderBooks: Record<string, BookUpdateData>;
+  priceHistory: PriceData[]; // Add this
   connect: () => void;
   disconnect: () => void;
-  setInitialOrderBook: (orderBookData: any) => void; // Add this
+  setInitialOrderBook: (orderBookData: any) => void;
+  setInitialPriceHistory: (priceData: PriceData[]) => void; // Add this
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -54,6 +61,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderBooks, setOrderBooks] = useState<Record<string, BookUpdateData>>({});
+  const [priceHistory, setPriceHistory] = useState<PriceData[]>([]); // Add this
   const [hasInitialData, setHasInitialData] = useState(false); // Add this flag
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,6 +71,20 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
       const msg = JSON.parse(event.data);
+
+      // Handle price_change event
+      if (msg.event === 'price_change' && msg.data) {
+        console.log('[WS] ✅ Processing price change update');
+        const { price, timestamp } = msg.data;
+        
+        setPriceHistory(prev => {
+          const newEntry = { price, timestamp };
+          const updated = [...prev, newEntry];
+          // Keep only last 50 entries to prevent memory issues
+          return updated.slice(-50);
+        });
+        return;
+      }
 
       // Handle wrapped order book updates (your backend format)
       if (msg.type === 'order_book_update' && msg.data) {
@@ -209,6 +231,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     }
   }, []);
 
+  // Add method to set initial price history
+  const setInitialPriceHistory = useCallback((priceData: PriceData[]) => {
+    setPriceHistory(priceData);
+  }, []);
+
   // Reset flags on disconnect
   const disconnect = useCallback(() => {
     console.log('[WebSocket] 🔌 disconnect() called');
@@ -226,6 +253,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     
     setIsConnected(false);
     setOrderBooks({});
+    setPriceHistory([]); // Reset price history
     setHasInitialData(false); // Reset the flag
     reconnectAttempts.current = 0;
   }, []);
@@ -256,9 +284,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     isConnected,
     error,
     orderBooks,
+    priceHistory, // Add this
     connect,
     disconnect,
-    setInitialOrderBook // Add this to the context
+    setInitialOrderBook,
+    setInitialPriceHistory // Add this
   };
 
   return (

@@ -33,8 +33,9 @@ interface PriceChartProps {
 
 export const PriceChartChartJS: React.FC<PriceChartProps> = ({ 
   data, 
-  timestamps, // <-- Accept timestamps
-  height = 200 
+  timestamps,
+  height = 200,
+  currentPrice // Add this parameter
 }) => {
   // Format timestamps for x-axis labels
   const labels: string[] = timestamps
@@ -72,6 +73,14 @@ export const PriceChartChartJS: React.FC<PriceChartProps> = ({
       tooltip: {
         callbacks: {
           label: (context: any) => `Price: $${context.parsed.y.toFixed(2)}`,
+          afterLabel: (context: any) => {
+            // Show timestamp in tooltip if available
+            if (timestamps && timestamps[context.dataIndex]) {
+              const date = new Date(timestamps[context.dataIndex]);
+              return `Time: ${date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
+            }
+            return '';
+          },
         },
       },
     },
@@ -82,7 +91,7 @@ export const PriceChartChartJS: React.FC<PriceChartProps> = ({
           display: false,
         },
         ticks: {
-          maxTicksLimit: 8, // Show fewer ticks for readability
+          maxTicksLimit: 8,
         },
       },
       y: {

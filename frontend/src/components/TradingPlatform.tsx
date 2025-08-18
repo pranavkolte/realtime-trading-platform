@@ -9,7 +9,7 @@ const PRICES_API = `${API_BASE}/prices/?limit=50`;
 
 export default function TradingPlatform() {
   const { token, email, logout } = useAuth();
-  const { connect, disconnect, isConnected, error: wsError, orderBooks, setInitialOrderBook } = useWebSocket();
+  const { connect, disconnect, isConnected, error: wsError, orderBooks, priceHistory, setInitialOrderBook, setInitialPriceHistory } = useWebSocket();
   const [stocks, setStocks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [orderBook, setOrderBook] = useState<any>(null);
@@ -25,8 +25,6 @@ export default function TradingPlatform() {
   // Add local loading states for orders and order book
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orderBookLoading, setOrderBookLoading] = useState(false);
-  const [priceHistory, setPriceHistory] = useState<number[]>([]);
-  const [priceTimestamps, setPriceTimestamps] = useState<string[]>([]); // <-- Add this
 
   // Fetch price history from /prices/?limit=50
   const fetchPriceHistory = async () => {
@@ -36,20 +34,20 @@ export default function TradingPlatform() {
       });
       if (!res.ok) throw new Error('Failed to fetch price history');
       const data = await res.json();
-      // Extract price values and timestamps, reverse to get oldest first
-      const prices = data
-        .map((item: any) => item.price?.price)
-        .filter((p: any) => typeof p === 'number')
+      // Convert API data to PriceData format and reverse to get oldest first
+      const priceData = data
+        .map((item: any) => ({
+          price: item.price?.price,
+          timestamp: item.price?.timestamp
+        }))
+        .filter((p: any) => typeof p.price === 'number' && p.timestamp)
         .reverse();
-      const timestamps = data
-        .map((item: any) => item.price?.timestamp)
-        .filter((t: any) => !!t)
-        .reverse();
-      setPriceHistory(prices);
-      setPriceTimestamps(timestamps); // <-- Set timestamps
+      
+      // Set initial price history in WebSocket context
+      setInitialPriceHistory(priceData);
     } catch (err) {
-      setPriceHistory([]);
-      setPriceTimestamps([]);
+      console.error('Failed to fetch price history:', err);
+      setInitialPriceHistory([]);
     }
   };
 
@@ -214,6 +212,10 @@ export default function TradingPlatform() {
 
   const liveBook = orderBooks.DEFAULT?.order_book;
 
+  // Extract prices and timestamps from priceHistory for the chart
+  const chartPrices = priceHistory.map(item => item.price);
+  const chartTimestamps = priceHistory.map(item => item.timestamp);
+
   return (
     <div className="dark-theme">
       <div className="trading-root">
@@ -243,12 +245,16 @@ export default function TradingPlatform() {
               <div style={{ flex: 1 }}>
                 <h4>Price Chart</h4>
                 <PriceChartChartJS 
-                  data={priceHistory} 
-                  timestamps={priceTimestamps} // <-- Pass timestamps
+                  data={chartPrices} 
+                  timestamps={chartTimestamps}
                   currentPrice={liveBook?.last_trade_price || orderBook?.last_trade_price}
                 />
                 <div style={{ marginTop: '8px', fontSize: '14px', color: '#6b7280' }}>
-                  Last Trade: ${liveBook?.last_trade_price || orderBook?.last_trade_price || 'N/A'}
+                  {priceHistory.length > 0 && (
+                    <span style={{ marginLeft: '16px' }}>
+                      Latest Price: ${priceHistory[priceHistory.length - 1]?.price || 'N/A'}
+                    </span>
+                  )}
                 </div>
               </div>
 
