@@ -2,6 +2,7 @@ from datetime import datetime
 from pydantic import BaseModel
 from uuid import UUID
 
+
 class TradeResponse(BaseModel):
     id: UUID
     engine_trade_id: int

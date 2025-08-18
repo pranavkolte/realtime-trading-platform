@@ -15,6 +15,7 @@ from sqlalchemy import (
 from app.database import Base
 from app.database.enums.oder_enums import Side, OrderType, OrderStatus
 
+
 class Order(Base):
     __tablename__ = "orders"
     order_id = Column(
@@ -23,17 +24,26 @@ class Order(Base):
         default=uuid.uuid4,
         nullable=False,
     )
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    user_id = Column(
+        PG_UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False
+    )
 
     side = Column(Enum(Side), nullable=False)
     order_type = Column(Enum(OrderType), nullable=False)
     price = Column(Float, nullable=True)
     quantity = Column(Float, nullable=False)
     remaining = Column(Float, nullable=False)
-    status = Column(Enum(OrderStatus), default=OrderStatus.OPEN, nullable=False)
+    status = Column(
+        Enum(OrderStatus), default=OrderStatus.OPEN, nullable=False
+    )
     active = Column(Boolean, default=True, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
 
     user = relationship("UserModel", back_populates="orders")

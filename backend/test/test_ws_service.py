@@ -5,9 +5,11 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
+
 @pytest.fixture
 def ws_manager():
     return WebSocketManager()
+
 
 @pytest.fixture
 def fake_websocket():
@@ -15,8 +17,11 @@ def fake_websocket():
     ws.send_text = AsyncMock()
     return ws
 
+
 @pytest.mark.asyncio
-async def test_connect_and_disconnect_adds_and_removes(ws_manager, fake_websocket):
+async def test_connect_and_disconnect_adds_and_removes(
+    ws_manager, fake_websocket
+):
     user_id = "user1"
     await ws_manager.connect(fake_websocket, user_id)
     assert user_id in ws_manager.active_connections
@@ -26,6 +31,7 @@ async def test_connect_and_disconnect_adds_and_removes(ws_manager, fake_websocke
     assert user_id not in ws_manager.active_connections
     assert fake_websocket not in ws_manager.all_connections
 
+
 @pytest.mark.asyncio
 async def test_send_personal_message_success(ws_manager, fake_websocket):
     user_id = "user2"
@@ -34,13 +40,17 @@ async def test_send_personal_message_success(ws_manager, fake_websocket):
     await ws_manager.send_personal_message(msg, user_id)
     fake_websocket.send_text.assert_called_once()
 
+
 @pytest.mark.asyncio
-async def test_send_personal_message_disconnect_on_error(ws_manager, fake_websocket):
+async def test_send_personal_message_disconnect_on_error(
+    ws_manager, fake_websocket
+):
     user_id = "user3"
     fake_websocket.send_text.side_effect = Exception("fail")
     ws_manager.active_connections[user_id] = [fake_websocket]
     await ws_manager.send_personal_message({"foo": "bar"}, user_id)
     assert fake_websocket not in ws_manager.active_connections.get(user_id, [])
+
 
 @pytest.mark.asyncio
 async def test_broadcast_message_success(ws_manager, fake_websocket):
@@ -49,13 +59,17 @@ async def test_broadcast_message_success(ws_manager, fake_websocket):
     await ws_manager.broadcast_message({"event": "test"})
     fake_websocket.send_text.assert_called_once()
 
+
 @pytest.mark.asyncio
-async def test_broadcast_message_disconnect_on_error(ws_manager, fake_websocket):
+async def test_broadcast_message_disconnect_on_error(
+    ws_manager, fake_websocket
+):
     fake_websocket.send_text.side_effect = Exception("fail")
     ws_manager.all_connections = [fake_websocket]
     ws_manager.active_connections["user5"] = [fake_websocket]
     await ws_manager.broadcast_message({"event": "test"})
     assert fake_websocket not in ws_manager.active_connections.get("user5", [])
+
 
 @pytest.mark.asyncio
 async def test_send_order_status_update_calls_personal(ws_manager):
@@ -66,6 +80,7 @@ async def test_send_order_status_update_calls_personal(ws_manager):
     args = ws_manager.send_personal_message.call_args[0][0]
     assert "event" in args or "order" in str(args)
 
+
 @pytest.mark.asyncio
 async def test_broadcast_price_change_calls_broadcast(ws_manager):
     ws_manager.broadcast_message = AsyncMock()
@@ -75,19 +90,24 @@ async def test_broadcast_price_change_calls_broadcast(ws_manager):
     msg = ws_manager.broadcast_message.call_args[0][0]
     assert msg["event"] == "price_change"
 
+
 def test_json_serializer_decimal(ws_manager):
     assert ws_manager._json_serializer(Decimal("1.23")) == 1.23
+
 
 def test_json_serializer_datetime(ws_manager):
     now = datetime.utcnow()
     assert ws_manager._json_serializer(now) == now.isoformat()
 
+
 def test_json_serializer_uuid(ws_manager):
     uid = uuid4()
     assert ws_manager._json_serializer(uid) == str(uid)
 
+
 def test_json_serializer_type_error(ws_manager):
-    class Foo: 
+    class Foo:
         pass
+
     with pytest.raises(TypeError):
         ws_manager._json_serializer(Foo())

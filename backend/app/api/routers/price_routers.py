@@ -7,10 +7,16 @@ from app.schemas.price_schemas import PriceHistoryResponse, PriceHistory
 
 router = APIRouter()
 
+
 @router.get("/")
 async def get_price_data(
-    limit: int = Query(default=50, ge=1, le=1000, description="Number of price entries to return"),
-    db: Session = Depends(get_db_session)
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=1000,
+        description="Number of price entries to return",
+    ),
+    db: Session = Depends(get_db_session),
 ):
     prices = (
         db.query(PriceHistoryModel)
@@ -19,4 +25,7 @@ async def get_price_data(
         .all()
     )
 
-    return [PriceHistoryResponse(price=PriceHistory.from_orm(price)) for price in prices]
+    return [
+        PriceHistoryResponse(price=PriceHistory.from_orm(price))
+        for price in prices
+    ]
