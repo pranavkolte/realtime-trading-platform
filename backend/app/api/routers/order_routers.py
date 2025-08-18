@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db_session
-from app.api.services.oder_book_service import OrderBookService
+from app.api.services.order_book_service import OrderBookService
 from app.api.services.ws_service import ws_manager
 from app.database.models.user_models import UserModel
 from app.schemas.order_schemas import PlaceOrderRequest, OrderResponse, BookSnapshotResponse

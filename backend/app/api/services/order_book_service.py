@@ -1,13 +1,14 @@
 from typing import List
+from collections import defaultdict
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
 
 from app.database.models.order_models import Order
 from app.database.models.trade_models import Trade
-from app.database.enums.oder_enums import OrderStatus
+from app.database.enums.oder_enums import OrderStatus, Side
 from app.schemas.order_schemas import PlaceOrderRequest, OrderResponse, BookSnapshotResponse, BookLevel
 from app.schemas.trade_scehmas import TradeResponse
-from app.api.services.oder_matching_service import matching_engine
+from app.api.services.order_matching_service import matching_engine
 
 class PlaceOrderResponse:
     def __init__(self, trades: List[TradeResponse], order: OrderResponse):
@@ -17,14 +18,26 @@ class PlaceOrderResponse:
 class OrderBookService:
     def __init__(self, db: Session):
         self.db = db
-        # Initialize last trade price from database if available
-        self._initialize_last_trade_price()
 
     def _initialize_last_trade_price(self):
         """Initialize last trade price from the most recent trade in database"""
         last_trade = self.db.query(Trade).order_by(desc(Trade.ts)).first()
         if last_trade:
             matching_engine.set_last_trade_price(last_trade.price)
+
+    def _restore_order_book_from_db(self):
+        """Restore the matching engine order book from database"""
+        # Get all active orders with remaining quantity
+        active_orders = self.db.query(Order).filter(
+            and_(
+                Order.active,
+                Order.remaining > 0,
+                Order.status.in_([OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED])
+            )
+        ).order_by(Order.created_at).all()
+        
+        # Restore the matching engine state
+        matching_engine.restore_from_database(active_orders)
 
     async def place_order(self, user_id: str, order_request: PlaceOrderRequest) -> dict:
         """Place a new order and return any resulting trades plus the order details"""
@@ -199,19 +212,42 @@ class OrderBookService:
         ) for trade in trades]
 
     def get_order_book_snapshot(self) -> BookSnapshotResponse:
-        """Get current order book snapshot"""
-        snapshot = matching_engine.get_order_book_snapshot()
+        """Get current order book snapshot from database"""
+        # Get active orders from database
+        active_orders = self.db.query(Order).filter(
+            and_(
+            Order.active,
+            Order.remaining > 0,
+            Order.status.in_([OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED])
+            )
+        ).all()
         
-        bids = [BookLevel(price=level["price"], total_qty=level["total_qty"]) 
-                for level in snapshot["bids"]]
-        asks = [BookLevel(price=level["price"], total_qty=level["total_qty"]) 
-                for level in snapshot["asks"]]
+        # Aggregate by price level
+        buy_levels = defaultdict(float)
+        sell_levels = defaultdict(float)
+        
+        for order in active_orders:
+            if order.side == Side.BUY:
+                buy_levels[order.price] += order.remaining
+            else:
+                sell_levels[order.price] += order.remaining
+        
+        # Format for response
+        bids = [BookLevel(price=price, total_qty=qty) 
+                for price, qty in sorted(buy_levels.items(), reverse=True)][:10]
+        asks = [BookLevel(price=price, total_qty=qty) 
+                for price, qty in sorted(sell_levels.items())][:10]
         
         return BookSnapshotResponse(
             bids=bids,
             asks=asks,
-            last_trade_price=matching_engine.get_last_trade_price()
+            last_trade_price=self._get_last_trade_price_from_db()
         )
+
+    def _get_last_trade_price_from_db(self) -> float:
+        """Get last trade price from database"""
+        last_trade = self.db.query(Trade).order_by(desc(Trade.ts)).first()
+        return last_trade.price if last_trade else 100.0
 
     def get_recent_trades(self, limit: int = 50) -> List[TradeResponse]:
         """Get recent trades for market data"""

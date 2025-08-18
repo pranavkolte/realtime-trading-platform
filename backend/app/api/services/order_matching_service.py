@@ -25,16 +25,11 @@ class TradeResult:
 
 class OrderMatchingEngine:
     def __init__(self):
-        # Buy orders: max heap (negative prices for max behavior)
-        self._buy_orders: List[Tuple[float, datetime, Order]] = []
-        # Sell orders: min heap (positive prices for min behavior)
-        self._sell_orders: List[Tuple[float, datetime, Order]] = []
-        # Order lookup for quick access
-        self._orders: Dict[str, Order] = {}
-        # Trade counter for engine trade IDs
-        self._trade_counter = 0
-        # Last trade price - persistent across all trades
-        self._last_trade_price = 100.0
+        self._buy_orders: List[Tuple[float, datetime, Order]] = []  # Buy orders: max heap (negative prices for max behavior)
+        self._sell_orders: List[Tuple[float, datetime, Order]] = []  # Sell orders: min heap (positive prices for min behavior)
+        self._orders: Dict[str, Order] = {}  # Order lookup for quick access
+        self._trade_counter = 0  # Trade counter for engine trade IDs
+        self._last_trade_price = 100.0  # Last trade price - persistent across all trades
 
     def add_order(self, order: Order) -> List[TradeResult]:
         """Add order to the engine and return any resulting trades"""
@@ -302,6 +297,80 @@ class OrderMatchingEngine:
                 return order.price
             heapq.heappop(self._sell_orders)
         return None
+    
+    def restore_from_database(self, db_orders: List[Order], db_session=None):
+        """Restore matching engine state from database orders and process any matches"""
+        print("🔄 Restoring orders and processing matches...")
+        
+        # Clear existing state
+        self._buy_orders = []
+        self._sell_orders = []
+        self._orders = {}
+        
+        # Sort orders by creation time to process them in chronological order
+        sorted_orders = sorted(db_orders, key=lambda x: x.created_at)
+        
+        all_trades = []  # Track all trades for database persistence
+        updated_orders = {}  # Track order updates
+        print(f"Restoring {len(sorted_orders)} orders from database...")
+        for order in sorted_orders:
+            if order.active and order.remaining > 0:
+
+                # Process the order through the matching engine
+                trades = self.add_order(order)
+                
+                if trades:
+                    print(f"Generated {len(trades)} trades during restoration")
+                    for trade in trades:
+                        all_trades.append(trade)
+                        
+                        # Track order updates
+                        updated_orders[str(trade.buy_order_id)] = (
+                            trade.buy_order_remaining, 
+                            trade.buy_order_status
+                        )
+                        updated_orders[str(trade.sell_order_id)] = (
+                            trade.sell_order_remaining, 
+                            trade.sell_order_status
+                        )
+        
+        # Save all trades and order updates to database if session provided
+        if db_session and all_trades:
+            print(f"Saving {len(all_trades)} trades to database...")
+
+            # Import here to avoid circular imports
+            from app.database.models.trade_models import Trade
+            
+            # Save trades
+            for trade_result in all_trades:
+                trade = Trade(
+                    engine_trade_id=int(trade_result.timestamp.timestamp()),
+                    price=trade_result.price,
+                    quantity=trade_result.quantity,
+                    buy_order_id=trade_result.buy_order_id,
+                    sell_order_id=trade_result.sell_order_id,
+                    buy_user_id=trade_result.buy_user_id,
+                    sell_user_id=trade_result.sell_user_id,
+                    ts=trade_result.timestamp
+                )
+                db_session.add(trade)
+            
+            # Update affected orders
+            for order_id, (remaining, status) in updated_orders.items():
+                db_order = db_session.query(Order).filter(Order.order_id == order_id).first()
+                if db_order:
+                    db_order.remaining = remaining
+                    db_order.status = status
+                    if status == OrderStatus.FILLED:
+                        db_order.active = False
+                    elif status == OrderStatus.PARTIALLY_FILLED:
+                        db_order.active = True
+            
+            # Commit all changes
+            db_session.commit()
+            print(f"Database updated with {len(all_trades)} trades and {len(updated_orders)} order updates")
+        
+        print(f"Final state: {len(self._buy_orders)} buy orders, {len(self._sell_orders)} sell orders")
 
 # Global instance
 matching_engine = OrderMatchingEngine()
