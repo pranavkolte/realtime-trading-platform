@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useWebSocket } from '../context/WebSocketContext';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
 import './TradingPlatform.css';
 import { PriceChartChartJS } from './PriceChart';
 
@@ -9,12 +10,26 @@ const PRICES_API = `${API_BASE}/prices/?limit=50`;
 
 export default function TradingPlatform() {
   const { token, email, logout } = useAuth();
-  const { connect, disconnect, isConnected, error: wsError, orderBooks, priceHistory, setInitialOrderBook, setInitialPriceHistory } = useWebSocket();
+  const { 
+    connect, 
+    disconnect, 
+    isConnected, 
+    error: wsError, 
+    orderBooks, 
+    priceHistory, 
+    activeOrders: wsActiveOrders,
+    orderHistory: wsOrderHistory,
+    setInitialOrderBook, 
+    setInitialPriceHistory,
+    setInitialOrders
+  } = useWebSocket();
+  
   const [stocks, setStocks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [orderBook, setOrderBook] = useState<any>(null);
-  const [activeOrders, setActiveOrders] = useState<any[]>([]);
-  const [orderHistory, setOrderHistory] = useState<any[]>([]);
+  // Remove local order states - now using WebSocket context
+  // const [activeOrders, setActiveOrders] = useState<any[]>([]);
+  // const [orderHistory, setOrderHistory] = useState<any[]>([]);
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
   const [orderTab, setOrderTab] = useState<'active' | 'history' | 'trades'>('active');
   const [orderForm, setOrderForm] = useState({
@@ -82,18 +97,18 @@ export default function TradingPlatform() {
       }).then(async (res) => {
         if (!res.ok) throw new Error('Failed to fetch orders');
         const orders = await res.json();
-        setActiveOrders(
-          orders.filter(
-            (o: any) =>
-              (o.status === 'OPEN' || o.status === 'PARTIALLY_FILLED') && o.active
-          )
+        
+        // Set initial orders in WebSocket context
+        const activeOrdersList = orders.filter(
+          (o: any) =>
+            (o.status === 'OPEN' || o.status === 'PARTIALLY_FILLED') && o.active
         );
-        setOrderHistory(
-          orders.filter(
-            (o: any) =>
-              (o.status !== 'OPEN' && o.status !== 'PARTIALLY_FILLED') || !o.active
-          )
+        const orderHistoryList = orders.filter(
+          (o: any) =>
+            (o.status !== 'OPEN' && o.status !== 'PARTIALLY_FILLED') || !o.active
         );
+        
+        setInitialOrders(activeOrdersList, orderHistoryList);
         setTradeHistory([]);
         setStocks([]);
         setLoading(false);
@@ -185,7 +200,7 @@ export default function TradingPlatform() {
     }
   };
 
-  // Cancel order
+  // Cancel order - now updates WebSocket state
   const cancelOrder = async (orderId: string) => {
     if (!token) return;
     try {
@@ -203,10 +218,12 @@ export default function TradingPlatform() {
         const err = await res.json();
         throw new Error(err.message || 'Failed to cancel order');
       }
-      // Only reload orders and order book, not the whole page
-      loadOrdersAndBook();
+      // The WebSocket will handle the order status update automatically
+      // No need to call loadOrdersAndBook() here
     } catch (err: any) {
-      // No alert
+      // If WebSocket update fails, fallback to manual refresh
+      console.error('Cancel order error:', err);
+      loadOrdersAndBook();
     }
   };
 
@@ -341,7 +358,7 @@ export default function TradingPlatform() {
                     <h4>Active Orders</h4>
                     {ordersLoading ? (
                       <div className="loading">Loading...</div>
-                    ) : activeOrders?.length ? (
+                    ) : wsActiveOrders?.length ? (
                       <div className="orders-table-scroll">
                         <table className="order-table">
                           <thead>
@@ -355,7 +372,7 @@ export default function TradingPlatform() {
                             </tr>
                           </thead>
                           <tbody>
-                            {activeOrders.map((order: any) => (
+                            {wsActiveOrders.map((order: any) => (
                               <tr key={order.id}>
                                 <td>
                                   <span className={`order-side ${order.side.toLowerCase()}`}>{order.side}</span>
@@ -406,7 +423,7 @@ export default function TradingPlatform() {
                     <h4>Order History</h4>
                     {ordersLoading ? (
                       <div className="loading">Loading...</div>
-                    ) : orderHistory?.length ? (
+                    ) : wsOrderHistory?.length ? (
                       <div className="orders-table-scroll">
                         <table className="order-table">
                           <thead>
@@ -419,11 +436,11 @@ export default function TradingPlatform() {
                             </tr>
                           </thead>
                           <tbody>
-                            {orderHistory
+                            {wsOrderHistory
                               .filter((order: any) => order.status !== 'PARTIALLY_FILLED')
-                              .slice(-20)
+                              .slice(0, 20) // Show latest 20 orders
                               .map((order: any, idx: number) => (
-                                <tr key={idx}>
+                                <tr key={`${order.id}-${idx}`}>
                                   <td>{order.side}</td>
                                   <td>${order.price}</td>
                                   <td>{order.quantity}</td>

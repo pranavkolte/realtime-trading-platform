@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { useNotification } from './NotificationContext';
 
 interface OrderBookEntry {
   price: number;
@@ -31,15 +32,31 @@ interface PriceData {
   timestamp: string;
 }
 
+interface OrderData {
+  id: string;
+  side: string;
+  order_type: string;
+  price: number;
+  quantity: number;
+  remaining: number;
+  status: string;
+  active: boolean;
+  created_at: string;
+  [key: string]: any;
+}
+
 interface WebSocketContextType {
   isConnected: boolean;
   error: string | null;
   orderBooks: Record<string, BookUpdateData>;
-  priceHistory: PriceData[]; // Add this
+  priceHistory: PriceData[];
+  activeOrders: OrderData[];
+  orderHistory: OrderData[];
   connect: () => void;
   disconnect: () => void;
   setInitialOrderBook: (orderBookData: any) => void;
-  setInitialPriceHistory: (priceData: PriceData[]) => void; // Add this
+  setInitialPriceHistory: (priceData: PriceData[]) => void;
+  setInitialOrders: (activeOrders: OrderData[], orderHistory: OrderData[]) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -58,11 +75,14 @@ interface WebSocketProviderProps {
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
   const { token } = useAuth();
+  const { addNotification } = useNotification();
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderBooks, setOrderBooks] = useState<Record<string, BookUpdateData>>({});
-  const [priceHistory, setPriceHistory] = useState<PriceData[]>([]); // Add this
-  const [hasInitialData, setHasInitialData] = useState(false); // Add this flag
+  const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
+  const [activeOrders, setActiveOrders] = useState<OrderData[]>([]);
+  const [orderHistory, setOrderHistory] = useState<OrderData[]>([]);
+  const [hasInitialData, setHasInitialData] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttempts = useRef(0);
@@ -71,6 +91,72 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const handleMessage = useCallback((event: MessageEvent) => {
     try {
       const msg = JSON.parse(event.data);
+
+      // Handle order_status event
+      if (msg.event === 'order_status' && msg.data) {
+        console.log('[WS] ✅ Processing order status update');
+        const { order_id, status, filled_quantity, remaining_quantity } = msg.data;
+        
+        // Update the order in real-time
+        setActiveOrders(prevActive => {
+          const orderIndex = prevActive.findIndex(order => order.id === order_id);
+          
+          if (orderIndex !== -1) {
+            const currentOrder = prevActive[orderIndex];
+            const updatedOrder = {
+              ...currentOrder,
+              status: status.toUpperCase(),
+              remaining: remaining_quantity,
+              active: status.toLowerCase() !== 'filled' && status.toLowerCase() !== 'cancelled'
+            };
+            
+            // Show notification based on status
+            const orderType = currentOrder.side?.toLowerCase() === 'buy' ? 'Buy' : 'Sell';
+            const orderPrice = currentOrder.price ? `$${currentOrder.price}` : '';
+            const orderQty = currentOrder.quantity || 0;
+            
+            if (status.toLowerCase() === 'filled') {
+              addNotification({
+                type: 'success',
+                title: 'Order Filled ✅',
+                message: `${orderType} order for ${orderQty} shares at ${orderPrice} has been completely filled.`,
+                duration: 6000
+              });
+            } else if (status.toLowerCase() === 'cancelled') {
+              addNotification({
+                type: 'error',
+                title: 'Order Cancelled ❌',
+                message: `${orderType} order for ${orderQty} shares at ${orderPrice} has been cancelled.`,
+                duration: 5000
+              });
+            } else if (status.toLowerCase() === 'partially_filled') {
+              const filledQty = orderQty - remaining_quantity;
+              addNotification({
+                type: 'warning',
+                title: 'Order Partially Filled ⚠️',
+                message: `${orderType} order: ${filledQty}/${orderQty} shares filled at ${orderPrice}. ${remaining_quantity} shares remaining.`,
+                duration: 7000
+              });
+            }
+            
+            // If order is filled or cancelled, move to history
+            if (status.toLowerCase() === 'filled' || status.toLowerCase() === 'cancelled') {
+              setOrderHistory(prevHistory => [updatedOrder, ...prevHistory]);
+              // Remove from active orders
+              return prevActive.filter(order => order.id !== order_id);
+            } else {
+              // Update in active orders
+              const newActiveOrders = [...prevActive];
+              newActiveOrders[orderIndex] = updatedOrder;
+              return newActiveOrders;
+            }
+          }
+          
+          return prevActive;
+        });
+        
+        return;
+      }
 
       // Handle price_change event
       if (msg.event === 'price_change' && msg.data) {
@@ -137,7 +223,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       console.error('[WS] Parse error:', err);
       setError('Bad message from server');
     }
-  }, [hasInitialData]);
+  }, [hasInitialData, addNotification]);
 
   const handleOpen = useCallback(() => {
     console.log('[WebSocket] ✅ Successfully Connected!');
@@ -236,6 +322,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     setPriceHistory(priceData);
   }, []);
 
+  // Add method to set initial orders
+  const setInitialOrders = useCallback((initialActiveOrders: OrderData[], initialOrderHistory: OrderData[]) => {
+    setActiveOrders(initialActiveOrders);
+    setOrderHistory(initialOrderHistory);
+  }, []);
+
   // Reset flags on disconnect
   const disconnect = useCallback(() => {
     console.log('[WebSocket] 🔌 disconnect() called');
@@ -253,8 +345,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     
     setIsConnected(false);
     setOrderBooks({});
-    setPriceHistory([]); // Reset price history
-    setHasInitialData(false); // Reset the flag
+    setPriceHistory([]);
+    setActiveOrders([]);
+    setOrderHistory([]);
+    setHasInitialData(false);
     reconnectAttempts.current = 0;
   }, []);
 
@@ -284,11 +378,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     isConnected,
     error,
     orderBooks,
-    priceHistory, // Add this
+    priceHistory,
+    activeOrders,
+    orderHistory,
     connect,
     disconnect,
     setInitialOrderBook,
-    setInitialPriceHistory // Add this
+    setInitialPriceHistory,
+    setInitialOrders
   };
 
   return (
