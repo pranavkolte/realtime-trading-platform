@@ -8,7 +8,7 @@ from app.api.services.ws_service import ws_manager
 from app.database.models.user_models import UserModel
 from app.schemas.order_schemas import PlaceOrderRequest, OrderResponse, BookSnapshotResponse
 from app.schemas.trade_scehmas import TradeResponse
-from app.core.auth_dependencies import get_current_user
+from app.core.auth_dependencies import get_current_user, get_current_admin_user
 
 router = APIRouter()
 ws_service = ws_manager
@@ -122,31 +122,6 @@ async def get_my_orders(
             detail=f"Failed to get orders: {str(e)}"
         )
 
-@router.get("/my-trades", response_model=List[TradeResponse])
-async def get_my_trades(
-    limit: int = 50,
-    current_user: UserModel = Depends(get_current_user),
-    db_session: Session = Depends(get_db_session)
-):
-    """
-    Get user's trade history
-    
-    - **limit**: Maximum number of trades to return (default: 50)
-    """
-    try:
-        order_service = OrderBookService(db_session)  # Use the injected session
-        trades = order_service.get_user_trades(
-            user_id=current_user.user_id,
-            limit=limit
-        )
-        return trades
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to get trades: {str(e)}"
-        )
-
 @router.get("/book", response_model=BookSnapshotResponse)
 async def get_order_book(db: Session = Depends(get_db_session)):
     """
@@ -168,15 +143,18 @@ async def get_order_book(db: Session = Depends(get_db_session)):
 @router.get("/recent-trades", response_model=List[TradeResponse])
 async def get_recent_trades(
     limit: int = 50,
+    current_admin: UserModel = Depends(get_current_admin_user),
     db_session: Session = Depends(get_db_session)
 ):
     """
-    Get recent trades for market data
+    Get recent trades for market data (Admin only)
     
     - **limit**: Maximum number of trades to return (default: 50)
+    
+    Requires admin privileges to access.
     """
     try:
-        order_service = OrderBookService(db_session)  # Use the injected session
+        order_service = OrderBookService(db_session)
         trades = order_service.get_recent_trades(limit=limit)
         return trades
         
@@ -184,22 +162,4 @@ async def get_recent_trades(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to get recent trades: {str(e)}"
-        )
-
-@router.get("/market-stats")
-async def get_market_stats(db_session: Session = Depends(get_db_session)):
-    """
-    Get basic market statistics
-    
-    Returns best bid, best ask, spread, and last trade price
-    """
-    try:
-        order_service = OrderBookService(db_session)
-        stats = order_service.get_market_stats()
-        return stats
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to get market stats: {str(e)}"
         )

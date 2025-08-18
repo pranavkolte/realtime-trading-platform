@@ -37,3 +37,16 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
+
+async def get_current_admin_user(
+    current_user: UserModel = Depends(get_current_user)
+) -> UserModel:
+    """
+    Dependency to ensure current user is an admin
+    """
+    if current_user.user_type.value != "admin":  # Adjust based on your user_type enum
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    return current_user
