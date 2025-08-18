@@ -23,8 +23,8 @@ export default function AuthPage() {
         : await signup({ ...form, user_type: 'trader' } as SignupPayload);
 
       if (isLogin) {
-        const { access_token, user_id } = res.data.data;
-        onLogin(access_token, form.email, user_id);
+        const { access_token } = res.data.data;
+        onLogin(access_token, form.email);
       } else alert('Account created! Please log in.');
     } catch (err: any) {
       console.error('Auth error:', err);

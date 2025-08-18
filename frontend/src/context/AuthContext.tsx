@@ -1,68 +1,75 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-interface AuthContextType {
+const AuthContext = createContext<{
+  isAuthenticated: boolean;
   token: string | null;
   email: string | null;
-  isAuthenticated: boolean;
-  login: (token: string, userEmail: string) => void;
+  userType: string | null;
+  login: (token: string, email: string) => void;
   logout: () => void;
-}
+}>({
+  isAuthenticated: false,
+  token: null,
+  email: null,
+  userType: null,
+  login: () => {},
+  logout: () => {},
+});
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+export const useAuth = () => {
+  return useContext(AuthContext);
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [email, setEmail] = useState<string | null>(localStorage.getItem('email'));
+  const [userType, setUserType] = useState<string | null>(null);
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
-
-  // Load authentication data from localStorage on mount
-  useEffect(() => {
-    const savedToken = localStorage.getItem('authToken');
-    const savedEmail = localStorage.getItem('userEmail');
-    
-    if (savedToken && savedEmail) {
-      setToken(savedToken);
-      setEmail(savedEmail);
+  // Function to decode JWT and extract user_type
+  const decodeToken = (token: string) => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.user_type || null;
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      return null;
     }
-  }, []);
+  };
 
-  const login = (authToken: string, userEmail: string) => {
-    setToken(authToken);
+  useEffect(() => {
+    if (token) {
+      const type = decodeToken(token);
+      setUserType(type);
+    }
+  }, [token]);
+
+  const login = (newToken: string, userEmail: string) => {
+    setToken(newToken);
     setEmail(userEmail);
-    localStorage.setItem('authToken', authToken);
-    localStorage.setItem('userEmail', userEmail);
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('email', userEmail);
+    
+    const type = decodeToken(newToken);
+    setUserType(type);
   };
 
   const logout = () => {
     setToken(null);
     setEmail(null);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userEmail');
-    // Redirect to login page
-    window.location.href = '/login';
-  };
-
-  const value: AuthContextType = {
-    token,
-    email,
-    isAuthenticated: !!token,
-    login,
-    logout,
+    setUserType(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('email');
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      isAuthenticated: !!token,
+      token,
+      email,
+      userType,
+      login,
+      logout,
+    }}>
       {children}
     </AuthContext.Provider>
   );

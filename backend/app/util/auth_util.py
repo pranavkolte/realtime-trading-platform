@@ -33,6 +33,7 @@ async def create_auth_token(user: UserModel) -> dict[str, str]:
     access_token_payload: str = {
         "sub": user.email,
         "user_id": str(user.user_id),
+        "user_type": user.user_type.value,
         "exp": access_expire_time
     }
     refresh_token_payload: dict = {

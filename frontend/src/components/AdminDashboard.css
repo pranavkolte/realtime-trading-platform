@@ -1,0 +1,22 @@
+/* Add to TradingPlatform.css or create AdminDashboard.css */
+.stat-card {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-card h4 {
+  margin: 0 0 8px 0;
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.stat-value {
+  margin: 0;
+  font-size: 24px;
+  font-weight: bold;
+  color: #f9fafb;
+}

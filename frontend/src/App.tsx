@@ -6,6 +6,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './components/Login';
 import TradingPlatform from './components/TradingPlatform';
+import AdminDashboard from './components/AdminDashboard';
 import './App.css';
 
 function App() {
@@ -22,6 +23,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <TradingPlatform />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute adminOnly={true}>
+                      <AdminDashboard />
                     </ProtectedRoute>
                   }
                 />
