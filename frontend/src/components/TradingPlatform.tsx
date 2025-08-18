@@ -178,7 +178,8 @@ export default function TradingPlatform() {
     const price = parseFloat(orderForm.price);
     const quantity = parseInt(orderForm.quantity);
 
-    if (!price || price <= 0) {
+    // For MARKET orders, price is not required
+    if (orderForm.orderType === 'LIMIT' && (!price || price <= 0)) {
       return;
     }
     if (!quantity || quantity <= 0) {
@@ -186,12 +187,18 @@ export default function TradingPlatform() {
     }
 
     try {
-      await placeOrder(token!, {
+      const orderData: any = {
         side: side,
         order_type: orderForm.orderType,
         quantity: quantity,
-        price: price,
-      });
+      };
+
+      // Only include price for LIMIT orders
+      if (orderForm.orderType === 'LIMIT') {
+        orderData.price = price;
+      }
+
+      await placeOrder(token!, orderData);
       setOrderForm({ price: '', quantity: '', orderType: 'LIMIT' });
       // Only reload orders and order book, not the whole page
       loadOrdersAndBook();
@@ -498,9 +505,10 @@ export default function TradingPlatform() {
                       type="number"
                       value={orderForm.price}
                       onChange={(e) => setOrderForm({...orderForm, price: e.target.value})}
-                      placeholder="0.00"
+                      placeholder={orderForm.orderType === 'MARKET' ? 'Market Price' : '0.00'}
                       step="0.01"
                       min="0"
+                      disabled={orderForm.orderType === 'MARKET'}
                     />
                   </div>
                   <div className="form-group">
