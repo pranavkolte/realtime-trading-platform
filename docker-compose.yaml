@@ -46,5 +46,19 @@ services:
     env_file:
       - .env
 
+  frontend:
+    container_name: realtime-trading-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
 volumes:
   realtime_db_volume:
