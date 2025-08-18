@@ -5,6 +5,7 @@ import './TradingPlatform.css';
 import { PriceChartChartJS } from './PriceChart';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
+const PRICES_API = `${API_BASE}/prices/?limit=50`;
 
 export default function TradingPlatform() {
   const { token, email, logout } = useAuth();
@@ -25,9 +26,36 @@ export default function TradingPlatform() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orderBookLoading, setOrderBookLoading] = useState(false);
   const [priceHistory, setPriceHistory] = useState<number[]>([]);
+  const [priceTimestamps, setPriceTimestamps] = useState<string[]>([]); // <-- Add this
+
+  // Fetch price history from /prices/?limit=50
+  const fetchPriceHistory = async () => {
+    try {
+      const res = await fetch(PRICES_API, {
+        headers: { accept: 'application/json' },
+      });
+      if (!res.ok) throw new Error('Failed to fetch price history');
+      const data = await res.json();
+      // Extract price values and timestamps, reverse to get oldest first
+      const prices = data
+        .map((item: any) => item.price?.price)
+        .filter((p: any) => typeof p === 'number')
+        .reverse();
+      const timestamps = data
+        .map((item: any) => item.price?.timestamp)
+        .filter((t: any) => !!t)
+        .reverse();
+      setPriceHistory(prices);
+      setPriceTimestamps(timestamps); // <-- Set timestamps
+    } catch (err) {
+      setPriceHistory([]);
+      setPriceTimestamps([]);
+    }
+  };
 
   useEffect(() => {
-    // Initial load
+    // Only fetch price history on first mount (reload)
+    fetchPriceHistory();
     loadOrdersAndBook();
   }, []);
 
@@ -186,18 +214,6 @@ export default function TradingPlatform() {
 
   const liveBook = orderBooks.DEFAULT?.order_book;
 
-  useEffect(() => {
-    if (liveBook?.last_trade_price) {
-      setPriceHistory(prev => [...prev.slice(-49), liveBook.last_trade_price]);
-    }
-  }, [liveBook?.last_trade_price]);
-
-  useEffect(() => {
-    if (orderBook?.last_trade_price) {
-      setPriceHistory(Array(10).fill(orderBook.last_trade_price));
-    }
-  }, [orderBook?.last_trade_price]);
-
   return (
     <div className="dark-theme">
       <div className="trading-root">
@@ -228,6 +244,7 @@ export default function TradingPlatform() {
                 <h4>Price Chart</h4>
                 <PriceChartChartJS 
                   data={priceHistory} 
+                  timestamps={priceTimestamps} // <-- Pass timestamps
                   currentPrice={liveBook?.last_trade_price || orderBook?.last_trade_price}
                 />
                 <div style={{ marginTop: '8px', fontSize: '14px', color: '#6b7280' }}>

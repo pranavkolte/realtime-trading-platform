@@ -23,6 +23,7 @@ ChartJS.register(
 
 interface PriceChartProps {
   data: number[];
+  timestamps?: string[]; // <-- Add timestamps prop
   width?: number;
   height?: number;
   currentPrice?: number;
@@ -30,10 +31,20 @@ interface PriceChartProps {
 
 export const PriceChartChartJS: React.FC<PriceChartProps> = ({ 
   data, 
+  timestamps, // <-- Accept timestamps
   height = 200 
 }) => {
+  // Format timestamps for x-axis labels
+  const labels: string[] = timestamps
+    ? timestamps.map(ts => {
+        const d = new Date(ts);
+        // Show only HH:MM:SS
+        return d.toLocaleTimeString('en-IN', { hour12: false });
+      })
+    : data.map((_, index) => (index + 1).toString());
+
   const chartData = {
-    labels: data.map((_, index) => index + 1),
+    labels,
     datasets: [
       {
         label: 'Price',
@@ -67,6 +78,9 @@ export const PriceChartChartJS: React.FC<PriceChartProps> = ({
         display: true,
         grid: {
           display: false,
+        },
+        ticks: {
+          maxTicksLimit: 8, // Show fewer ticks for readability
         },
       },
       y: {
