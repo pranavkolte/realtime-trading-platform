@@ -13,12 +13,6 @@ from app.core.auth_dependencies import get_current_user, get_current_admin_user
 router = APIRouter()
 ws_service = ws_manager
 
-# Create a response model for place order
-class PlaceOrderResponseModel:
-    def __init__(self, trades: List[TradeResponse], order: OrderResponse, order_executed: bool):
-        self.trades = trades
-        self.order = order
-        self.order_executed = order_executed
 
 @router.post("/place")
 async def place_order(

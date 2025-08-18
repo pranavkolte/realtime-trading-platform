@@ -23,7 +23,7 @@ def decode_access_token(token: str) -> dict:
         return payload
     except jwt.ExpiredSignatureError:
         raise ValueError("Token has expired")
-    except jwt.JWTError:
+    except jwt.exceptions.InvalidTokenError:
         raise ValueError("Invalid token")
 
 async def create_auth_token(user: UserModel) -> dict[str, str]:

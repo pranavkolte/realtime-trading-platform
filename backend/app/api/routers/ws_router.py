@@ -1,7 +1,7 @@
+import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, status
 from fastapi.security import HTTPBearer
 from typing import Optional
-import json
 
 from app.api.services.ws_service import ws_manager
 from app.util.auth_util import decode_access_token
@@ -16,7 +16,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     Requires access_token as query parameter: /update?token=your_access_token
     """
     try:
-        # Accept connection first
         await websocket.accept()
         
         # Validate token
@@ -57,7 +56,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
         try:
             while True:
                 data = await websocket.receive_text()
-                # Handle incoming messages if needed (ping/pong, subscriptions, etc.)
                 message = json.loads(data)
                 if message.get("type") == "ping":
                     await websocket.send_text(json.dumps({"type": "pong"}))
