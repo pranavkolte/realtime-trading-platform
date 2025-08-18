@@ -86,6 +86,18 @@ class WebSocketManager:
         }
         await self.send_personal_message(message, user_id)
     
+    async def broadcast_price_change(self, price: float, timestamp):
+        """Broadcast price change event to all clients"""
+        message = {
+            "event": "price_change",
+            "timestamp": timestamp.isoformat(),
+            "data": {
+                "price": price,
+                "timestamp": timestamp.isoformat()
+            }
+        }
+        await self.broadcast_message(message)
+    
     def _json_serializer(self, obj):
         """JSON serializer for objects not serializable by default json code"""
         if isinstance(obj, Decimal):

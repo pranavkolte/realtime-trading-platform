@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routers.auth_routers import router as auth_router
 from app.api.routers.order_routers import router as order_router
 from app.api.routers.ws_router import router as ws_router
+from app.api.routers.price_routers import router as price_router
 from app.api.services.startup_service import restore_matching_engine_from_database
 
 
@@ -47,4 +48,10 @@ app.include_router(
     ws_router,
     prefix="/api/v1/ws",
     tags=["websocket"]
+)
+
+app.include_router(
+    price_router,
+    prefix="/api/v1/prices",
+    tags=["Price"]
 )

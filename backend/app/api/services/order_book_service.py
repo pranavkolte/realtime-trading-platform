@@ -2,13 +2,16 @@ from typing import List
 from collections import defaultdict
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
+from datetime import datetime, timezone
 
 from app.database.models.order_models import Order
 from app.database.models.trade_models import Trade
+from app.database.models.price_models import PriceHistoryModel
 from app.database.enums.oder_enums import OrderStatus, Side, OrderType
 from app.schemas.order_schemas import PlaceOrderRequest, OrderResponse, BookSnapshotResponse, BookLevel
 from app.schemas.trade_scehmas import TradeResponse
 from app.api.services.order_matching_service import matching_engine
+from app.api.services.ws_service import ws_manager
 
 class PlaceOrderResponse:
     def __init__(self, trades: List[TradeResponse], order: OrderResponse):
@@ -19,11 +22,36 @@ class OrderBookService:
     def __init__(self, db: Session):
         self.db = db
 
-    def _initialize_last_trade_price(self):
-        """Initialize last trade price from the most recent trade in database"""
-        last_trade = self.db.query(Trade).order_by(desc(Trade.ts)).first()
-        if last_trade:
-            matching_engine.set_last_trade_price(last_trade.price)
+        # Initialize last trade price from DB
+        self._initialize_last_trade_price_from_price_history()
+
+        async def save_and_broadcast_price(price):
+            now = datetime.now(timezone.utc)
+            price_entry = PriceHistoryModel(price=price, timestamp=now)
+            self.db.add(price_entry)
+            self.db.commit()
+            # Broadcast price change event
+            await ws_manager.broadcast_price_change(price, now)
+
+        # Register the async callback
+        matching_engine.set_price_change_callback(save_and_broadcast_price)
+
+    def _initialize_last_trade_price_from_price_history(self):
+        """Initialize last trade price from the most recent price in price_history table"""
+        last_price = (
+            self.db.query(PriceHistoryModel)
+            .order_by(PriceHistoryModel.timestamp.desc())
+            .first()
+        )
+        if last_price:
+            matching_engine.set_last_trade_price(last_price.price)
+        else:
+            # Fallback to last trade if no price history
+            last_trade = self.db.query(Trade).order_by(desc(Trade.ts)).first()
+            if last_trade:
+                matching_engine.set_last_trade_price(last_trade.price)
+            else:
+                matching_engine.set_last_trade_price(100.0)
 
     def _restore_order_book_from_db(self):
         """Restore the matching engine order book from database"""
@@ -289,12 +317,14 @@ class OrderBookService:
 
     def get_order_book_snapshot(self) -> BookSnapshotResponse:
         """Get current order book snapshot from database"""
-        # Get active orders from database
+        # Get active orders from database - only LIMIT orders with valid prices
         active_orders = self.db.query(Order).filter(
             and_(
-            Order.active,
-            Order.remaining > 0,
-            Order.status.in_([OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED])
+                Order.active,
+                Order.remaining > 0,
+                Order.status.in_([OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED]),
+                Order.order_type == OrderType.LIMIT,  # Only limit orders
+                Order.price.isnot(None)  # Only orders with valid prices
             )
         ).all()
         

@@ -1,5 +1,6 @@
-import heapq
 from uuid import UUID
+import heapq
+import asyncio
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
@@ -30,6 +31,7 @@ class OrderMatchingEngine:
         self._orders: Dict[str, Order] = {}  # Order lookup for quick access
         self._trade_counter = 0  # Trade counter for engine trade IDs
         self._last_trade_price = 100.0  # Last trade price - persistent across all trades
+        self._on_price_change = None  # Callback for price change
 
     def add_order(self, order: Order) -> List[TradeResult]:
         """Add order to the engine and return any resulting trades"""
@@ -173,6 +175,14 @@ class OrderMatchingEngine:
         # Update last trade price in the engine
         self._last_trade_price = trade_price
 
+        # Call the price change callback if set (support async)
+        if self._on_price_change:
+            callback = self._on_price_change
+            if asyncio.iscoroutinefunction(callback):
+                asyncio.create_task(callback(trade_price))
+            else:
+                callback(trade_price)
+
         # Create trade result
         self._trade_counter += 1
         trade_result = TradeResult(
@@ -236,6 +246,9 @@ class OrderMatchingEngine:
         """Set the last trade price (for initialization from database)"""
         self._last_trade_price = price
 
+    def set_price_change_callback(self, callback):
+        self._on_price_change = callback
+
     def _add_to_book(self, order: Order):
         """Add order to the appropriate order book"""
         self._orders[str(order.order_id)] = order
@@ -249,18 +262,22 @@ class OrderMatchingEngine:
 
     def get_order_book_snapshot(self) -> Dict:
         """Get current order book snapshot"""
-        # Aggregate buy orders by price - only include active orders with remaining quantity
+        # Aggregate buy orders by price - only include active orders with remaining quantity and valid prices
         buy_levels = defaultdict(float)
         for _, _, order in self._buy_orders:
-            if order.active and order.remaining > 0 and order.status in [OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED]:
+            if (order.active and order.remaining > 0 and 
+                order.status in [OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED] and
+                order.price is not None):  # Only orders with valid prices
                 buy_levels[order.price] += order.remaining
-        
-        # Aggregate sell orders by price - only include active orders with remaining quantity
+    
+        # Aggregate sell orders by price - only include active orders with remaining quantity and valid prices
         sell_levels = defaultdict(float)
         for _, _, order in self._sell_orders:
-            if order.active and order.remaining > 0 and order.status in [OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED]:
+            if (order.active and order.remaining > 0 and 
+                order.status in [OrderStatus.OPEN, OrderStatus.PARTIALLY_FILLED] and
+                order.price is not None):  # Only orders with valid prices
                 sell_levels[order.price] += order.remaining
-        
+    
         # Sort and format
         bids = [{"price": price, "total_qty": qty} 
                 for price, qty in sorted(buy_levels.items(), reverse=True)]
